@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import {
-  RecordingPresets,
-  requestRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioPlayer,
   useAudioPlayerStatus,
-  useAudioRecorder,
-  useAudioRecorderState,
 } from 'expo-audio';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 
 import { getAudioSource } from '../audio/audioAssets';
+import { resolveChoiceFromTranscripts } from '../domain/choiceResolver';
 import {
   createInitialPlayerState,
   getChoiceNode,
@@ -21,8 +22,18 @@ import {
   type PlayerState,
 } from '../domain/playerMachine';
 import type { Story } from '../domain/storySchema';
-import { resolveSpokenChoice } from '../services/choiceApi';
 import { clearProgress, loadProgress, saveProgress } from '../services/progressStore';
+
+const VOICE_UNAVAILABLE_MESSAGE =
+  'Bu cihazda çevrimdışı ses tanıma kullanılamıyor. Seçeneğe dokunabilirsin.';
+const VOICE_NOT_RECOGNIZED_MESSAGE =
+  'Söylediğin seçeneği anlayamadım. Tekrar söyleyebilir veya dokunabilirsin.';
+const OFFLINE_MODEL_MESSAGE =
+  'Çevrimdışı dil paketini indirmen için cihaz penceresi açıldı. Bu sırada seçeneğe dokunabilirsin.';
+
+function normalizeLocale(locale: string): string {
+  return locale.replaceAll('_', '-').toLowerCase();
+}
 
 export function useStoryPlayer(story: Story) {
   const [state, dispatchBase] = useReducer(
@@ -32,17 +43,17 @@ export function useStoryPlayer(story: Story) {
   );
   const [isHydrating, setIsHydrating] = useState(true);
   const [resumeSnapshot, setResumeSnapshot] = useState<PlayerState | null>(null);
+  const currentSegment = useMemo(() => getCurrentSegment(story, state), [state, story]);
+  const choice = useMemo(() => getChoiceNode(story, state), [state, story]);
   const stateRef = useRef(state);
+  const choiceRef = useRef(choice);
+  const voiceSessionActiveRef = useRef(false);
+  const voiceResultHandledRef = useRef(false);
   const finishedSegmentRef = useRef<string | null>(null);
   const readySegmentRef = useRef<string | null>(null);
   const lastSavedSecondRef = useRef(-1);
   const player = useAudioPlayer(null, { updateInterval: 250, downloadFirst: true });
   const status = useAudioPlayerStatus(player);
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderStatus = useAudioRecorderState(recorder, 250);
-
-  const currentSegment = useMemo(() => getCurrentSegment(story, state), [state, story]);
-  const choice = useMemo(() => getChoiceNode(story, state), [state, story]);
 
   const dispatch = useCallback((event: PlayerEvent) => {
     dispatchBase(event);
@@ -53,6 +64,10 @@ export function useStoryPlayer(story: Story) {
   }, [state]);
 
   useEffect(() => {
+    choiceRef.current = choice;
+  }, [choice]);
+
+  const restorePlaybackAudioMode = useCallback(() => {
     setAudioModeAsync({
       allowsRecording: false,
       playsInSilentMode: true,
@@ -61,6 +76,58 @@ export function useStoryPlayer(story: Story) {
       shouldRouteThroughEarpiece: false,
     }).catch(() => undefined);
   }, []);
+
+  useSpeechRecognitionEvent('result', (event) => {
+    if (!event.isFinal || !voiceSessionActiveRef.current) return;
+
+    voiceResultHandledRef.current = true;
+    voiceSessionActiveRef.current = false;
+    restorePlaybackAudioMode();
+    dispatch({ type: 'START_RESOLVING' });
+
+    const activeChoice = choiceRef.current;
+    const optionId = activeChoice
+      ? resolveChoiceFromTranscripts(
+          event.results.map(({ transcript }) => transcript),
+          activeChoice.options,
+          story.language,
+        )
+      : null;
+
+    dispatch(
+      optionId
+        ? { type: 'SELECT_OPTION', optionId }
+        : { type: 'VOICE_FAILED', message: VOICE_NOT_RECOGNIZED_MESSAGE },
+    );
+  });
+
+  useSpeechRecognitionEvent('error', (event) => {
+    if (!voiceSessionActiveRef.current || event.error === 'aborted') return;
+    voiceSessionActiveRef.current = false;
+    voiceResultHandledRef.current = true;
+    restorePlaybackAudioMode();
+    dispatch({
+      type: 'VOICE_FAILED',
+      message:
+        event.error === 'no-speech' || event.error === 'speech-timeout'
+          ? VOICE_NOT_RECOGNIZED_MESSAGE
+          : VOICE_UNAVAILABLE_MESSAGE,
+    });
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    restorePlaybackAudioMode();
+    if (!voiceSessionActiveRef.current || voiceResultHandledRef.current) return;
+    voiceSessionActiveRef.current = false;
+    dispatch({ type: 'VOICE_FAILED', message: VOICE_NOT_RECOGNIZED_MESSAGE });
+  });
+
+  useEffect(() => {
+    restorePlaybackAudioMode();
+    return () => {
+      if (voiceSessionActiveRef.current) ExpoSpeechRecognitionModule.abort();
+    };
+  }, [restorePlaybackAudioMode]);
 
   useEffect(() => {
     let mounted = true;
@@ -136,6 +203,13 @@ export function useStoryPlayer(story: Story) {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') return;
+      if (voiceSessionActiveRef.current) {
+        voiceSessionActiveRef.current = false;
+        voiceResultHandledRef.current = true;
+        ExpoSpeechRecognitionModule.abort();
+        restorePlaybackAudioMode();
+        dispatch({ type: 'VOICE_FAILED', message: VOICE_NOT_RECOGNIZED_MESSAGE });
+      }
       player.pause();
       dispatch({ type: 'PAUSE' });
       saveProgress({
@@ -146,7 +220,7 @@ export function useStoryPlayer(story: Story) {
       }).catch(() => undefined);
     });
     return () => subscription.remove();
-  }, [dispatch, player]);
+  }, [dispatch, player, restorePlaybackAudioMode]);
 
   const togglePlayback = useCallback(() => {
     dispatch({ type: state.mode === 'playing' ? 'PAUSE' : 'PLAY' });
@@ -162,7 +236,52 @@ export function useStoryPlayer(story: Story) {
 
   const startVoiceChoice = useCallback(async () => {
     if (!choice || state.mode !== 'awaitingChoice') return;
-    const permission = await requestRecordingPermissionsAsync();
+
+    const supportsOnDeviceRecognition =
+      ExpoSpeechRecognitionModule.supportsOnDeviceRecognition();
+
+    if (
+      supportsOnDeviceRecognition &&
+      Platform.OS === 'android' &&
+      Number(Platform.Version) >= 33
+    ) {
+      try {
+        const { installedLocales } =
+          await ExpoSpeechRecognitionModule.getSupportedLocales({});
+        const requestedLocale = normalizeLocale(story.language);
+        const localeIsInstalled = installedLocales.some(
+          (locale) => normalizeLocale(locale) === requestedLocale,
+        );
+
+        if (!localeIsInstalled) {
+          await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({
+            locale: story.language,
+          });
+          dispatch({ type: 'VOICE_FAILED', message: OFFLINE_MODEL_MESSAGE });
+          return;
+        }
+      } catch {
+        // Starting below remains privacy-safe because on-device recognition is mandatory.
+      }
+    }
+
+    if (!supportsOnDeviceRecognition) {
+      if (Platform.OS === 'android' && Number(Platform.Version) >= 33) {
+        try {
+          await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({
+            locale: story.language,
+          });
+          dispatch({ type: 'VOICE_FAILED', message: OFFLINE_MODEL_MESSAGE });
+          return;
+        } catch {
+          // The tap fallback below is intentionally retained when Android cannot download a pack.
+        }
+      }
+      dispatch({ type: 'VOICE_FAILED', message: VOICE_UNAVAILABLE_MESSAGE });
+      return;
+    }
+
+    const permission = await ExpoSpeechRecognitionModule.requestMicrophonePermissionsAsync();
     if (!permission.granted) {
       dispatch({
         type: 'VOICE_FAILED',
@@ -171,54 +290,38 @@ export function useStoryPlayer(story: Story) {
       return;
     }
 
-    await setAudioModeAsync({
-      allowsRecording: true,
-      playsInSilentMode: true,
-      shouldPlayInBackground: false,
-      shouldRouteThroughEarpiece: false,
-    });
-    await recorder.prepareToRecordAsync();
-    recorder.record({ forDuration: 10 });
-    dispatch({ type: 'START_RECORDING' });
-  }, [choice, dispatch, recorder, state.mode]);
-
-  const finishVoiceChoice = useCallback(async (recordingAlreadyStopped = false) => {
-    if (!choice || state.mode !== 'recordingChoice') return;
-    if (!recordingAlreadyStopped) await recorder.stop();
-    dispatch({ type: 'START_RESOLVING' });
-    await setAudioModeAsync({
-      allowsRecording: false,
-      playsInSilentMode: true,
-      shouldPlayInBackground: false,
-      shouldRouteThroughEarpiece: false,
-    });
-
-    const recordingUri = recorder.uri ?? recorderStatus.url;
-    if (!recordingUri) {
-      dispatch({ type: 'VOICE_FAILED', message: 'Ses kaydı alınamadı. Tekrar deneyebilirsin.' });
-      return;
-    }
-
     try {
-      const optionId = await resolveSpokenChoice(recordingUri, choice.options);
-      dispatch({ type: 'SELECT_OPTION', optionId });
-    } catch (error) {
-      dispatch({
-        type: 'VOICE_FAILED',
-        message: error instanceof Error ? error.message : 'Ses seçimi tamamlanamadı.',
+      voiceSessionActiveRef.current = true;
+      voiceResultHandledRef.current = false;
+      dispatch({ type: 'START_RECORDING' });
+      ExpoSpeechRecognitionModule.start({
+        lang: story.language,
+        contextualStrings: choice.options.flatMap(({ label, voiceHints }) => [
+          label,
+          ...voiceHints,
+        ]),
+        continuous: false,
+        interimResults: false,
+        maxAlternatives: 5,
+        requiresOnDeviceRecognition: true,
       });
+    } catch {
+      voiceSessionActiveRef.current = false;
+      dispatch({ type: 'VOICE_FAILED', message: VOICE_UNAVAILABLE_MESSAGE });
     }
-  }, [choice, dispatch, recorder, recorderStatus.url, state.mode]);
+  }, [choice, dispatch, state.mode, story.language]);
+
+  const finishVoiceChoice = useCallback(() => {
+    if (!choice || state.mode !== 'recordingChoice' || !voiceSessionActiveRef.current) return;
+    dispatch({ type: 'START_RESOLVING' });
+    ExpoSpeechRecognitionModule.stop();
+  }, [choice, dispatch, state.mode]);
 
   useEffect(() => {
-    if (
-      state.mode === 'recordingChoice' &&
-      !recorderStatus.isRecording &&
-      recorderStatus.durationMillis >= 9_500
-    ) {
-      finishVoiceChoice(true);
-    }
-  }, [finishVoiceChoice, recorderStatus.durationMillis, recorderStatus.isRecording, state.mode]);
+    if (state.mode !== 'recordingChoice') return;
+    const timer = setTimeout(finishVoiceChoice, 10_000);
+    return () => clearTimeout(timer);
+  }, [finishVoiceChoice, state.mode]);
 
   const continueSaved = useCallback(async () => {
     if (!resumeSnapshot) return;

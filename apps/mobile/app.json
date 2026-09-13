@@ -32,6 +32,17 @@
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Masal seçimlerini cihazda anlamak için mikrofon erişimine izin ver.",
+          "speechRecognitionPermission": "Ses tanıma yalnızca cihazda çalışır ve masal seçimini anlamak için kullanılır.",
+          "androidSpeechServicePackages": [
+            "com.google.android.as",
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
       ]
     ]
   }
