@@ -1,0 +1,76 @@
+import { describe, expect, it } from 'vitest';
+
+import { sampleStory } from './sampleStory';
+import {
+  createInitialPlayerState,
+  getCurrentSegment,
+  reducePlayer,
+} from './playerMachine';
+
+describe('story player state machine', () => {
+  it('moves from narration to the choice prompt and waits for the listener', () => {
+    let state = createInitialPlayerState(sampleStory);
+    state = reducePlayer(sampleStory, state, { type: 'PLAY' });
+    state = reducePlayer(sampleStory, state, { type: 'AUDIO_FINISHED' });
+
+    expect(state.nodeId).toBe('silver-leaf-choice');
+    expect(state.trackKind).toBe('choicePrompt');
+    expect(state.mode).toBe('playing');
+
+    state = reducePlayer(sampleStory, state, { type: 'AUDIO_FINISHED' });
+    expect(state.mode).toBe('awaitingChoice');
+  });
+
+  it('plays guidance once and keeps waiting without auto-selecting', () => {
+    let state = createInitialPlayerState(sampleStory);
+    state = {
+      ...state,
+      nodeId: 'silver-leaf-choice',
+      trackKind: 'choicePrompt',
+      mode: 'awaitingChoice',
+    };
+
+    state = reducePlayer(sampleStory, state, { type: 'GUIDANCE_TIMEOUT' });
+    expect(state.trackKind).toBe('choiceGuidance');
+    expect(state.mode).toBe('playing');
+
+    state = reducePlayer(sampleStory, state, { type: 'AUDIO_FINISHED' });
+    expect(state.mode).toBe('awaitingChoice');
+    expect(state.guidancePlayed).toBe(true);
+    expect(state.selectedOptionId).toBeNull();
+
+    expect(reducePlayer(sampleStory, state, { type: 'GUIDANCE_TIMEOUT' })).toEqual(state);
+  });
+
+  it.each([
+    ['listen-to-wind', 'wind-response'],
+    ['inspect-stones', 'stones-response'],
+  ])('plays %s and rejoins the shared path', (optionId, responseSegmentId) => {
+    let state = createInitialPlayerState(sampleStory);
+    state = {
+      ...state,
+      nodeId: 'silver-leaf-choice',
+      trackKind: 'choicePrompt',
+      mode: 'awaitingChoice',
+    };
+    state = reducePlayer(sampleStory, state, { type: 'SELECT_OPTION', optionId });
+
+    expect(getCurrentSegment(sampleStory, state)?.id).toBe(responseSegmentId);
+
+    state = reducePlayer(sampleStory, state, { type: 'AUDIO_FINISHED' });
+    expect(state.nodeId).toBe('green-door');
+    expect(state.trackKind).toBe('narration');
+    expect(state.selectedOptionIds).toContain(optionId);
+  });
+
+  it('restores progress paused so playback never starts unexpectedly', () => {
+    const initial = createInitialPlayerState(sampleStory);
+    const restored = reducePlayer(sampleStory, initial, {
+      type: 'RESTORE',
+      snapshot: { ...initial, mode: 'playing', positionSeconds: 8.25 },
+    });
+
+    expect(restored.mode).toBe('paused');
+    expect(restored.positionSeconds).toBe(8.25);
+  });
+});
