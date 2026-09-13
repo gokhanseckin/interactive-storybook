@@ -6,6 +6,9 @@
 - Mobile test suite passed: 13 tests in 2 files.
 - Audio API TypeScript check passed.
 - Audio API test suite passed: 1 test.
+- The synthetic live OpenAI speech check passed: TTS generated 65,664 bytes and
+  `gpt-4o-mini-transcribe` returned the exact Turkish source sentence,
+  “Rüzgârın sesini dinlemek istiyorum.” No child recording was used.
 - Expo public configuration generation passed and contains the localized iOS
   microphone and speech-recognition usage descriptions.
 - Expo Android prebuild passed with Node 22.23.2.
@@ -19,15 +22,14 @@
 The Android build was generated in a temporary directory so native generated
 files did not alter the managed Expo source tree.
 
-## Pending external prerequisites
+## Deferred for this spike
 
-- The synthetic live OpenAI TTS-to-transcription check could not run because
-  neither the process environment nor `services/audio-api/.env` contains an
-  `OPENAI_API_KEY`. The check is ready as `npm run test:live-speech`; it sends
-  only a fixed synthetic Turkish phrase, never a child's recording.
-- No Android device was connected to ADB.
-- Xcode reported both known iPhones as offline. A phone must be unlocked,
-  connected, and trusted before installation and live microphone/TTS testing.
+- Physical-device acceptance testing was intentionally deferred for the Masal Yolu
+  foundation spike. At verification time, no Android device was connected to
+  ADB and Xcode reported both known iPhones as offline.
+- This deferral is not a production sign-off. Before an App Store or Play Store
+  release, run the eight real-device acceptance checks in the repository README
+  on representative iOS and Android devices for every supported locale.
 
-Once a device and key are available, run the live speech script and then the
-eight real-device acceptance checks in the repository README.
+The OpenAI key remains server-only in the ignored `services/audio-api/.env`
+file and must never be added to the mobile application or committed.
