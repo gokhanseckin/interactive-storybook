@@ -36,7 +36,9 @@ export const StorySchema = z
     schemaVersion: z.literal(1),
     id: z.string().min(1),
     title: z.string().min(1),
-    language: z.literal('tr-TR'),
+    language: z
+      .string()
+      .regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/, 'Language must be a BCP-47 tag.'),
     ageBand: z.enum(['3-5', '6-8', '9-12', '13-17', '18+']),
     episode: z.object({
       number: z.number().int().positive(),

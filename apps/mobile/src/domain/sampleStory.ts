@@ -49,7 +49,15 @@ export const sampleStory = StorySchema.parse({
         {
           id: 'listen-to-wind',
           label: 'Rüzgârın sesini dinlemek istiyorum.',
-          voiceHints: ['rüzgâr', 'rüzgar', 'dinlemek', 'sesi dinle'],
+          voiceHints: [
+            'rüzgâr',
+            'rüzgar',
+            'dinlemek',
+            'sesi dinle',
+            'rüzgârı dinleyelim',
+            'rüzgârı seçiyorum',
+            'sesi takip edelim',
+          ],
           responseSegments: [
             {
               id: 'wind-response',
@@ -63,7 +71,15 @@ export const sampleStory = StorySchema.parse({
         {
           id: 'inspect-stones',
           label: 'Yerdeki taşları incelemek istiyorum.',
-          voiceHints: ['taş', 'taşlar', 'incelemek', 'yere bak'],
+          voiceHints: [
+            'taş',
+            'taşlar',
+            'incelemek',
+            'yere bak',
+            'taşlara bakalım',
+            'taşları seçiyorum',
+            'yeri inceleyelim',
+          ],
           responseSegments: [
             {
               id: 'stones-response',
