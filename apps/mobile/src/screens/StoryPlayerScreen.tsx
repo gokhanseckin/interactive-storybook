@@ -177,6 +177,7 @@ export function StoryPlayerScreen() {
       (state.mode === 'awaitingChoice' ||
         state.mode === 'recordingChoice' ||
         state.mode === 'resolvingChoice' ||
+        state.trackKind === 'choicePrompt' ||
         state.trackKind === 'choiceGuidance'),
   );
   const canTapChoice =
