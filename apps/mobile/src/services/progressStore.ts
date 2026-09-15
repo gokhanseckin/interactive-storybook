@@ -26,6 +26,7 @@ const PlayerStateSchema = z.object({
   positionSeconds: z.number().nonnegative(),
   selectedOptionId: z.string().nullable(),
   selectedOptionIds: z.array(z.string()),
+  selectedOptionsByChoiceId: z.record(z.string(), z.string()).default({}),
   guidancePlayed: z.boolean(),
   message: z.string().nullable(),
 });

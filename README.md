@@ -10,7 +10,7 @@ The included sample is a shortened section of **Rüzgârın Sakladığı Uçurtm
 ## What the spike proves
 
 - Audio playback with a large pause/play control
-- Two equal, converging choices
+- Two equal cosmetic outcomes that return to one fixed story sequence
 - One spoken guidance message after eight seconds, with no automatic choice
 - Microphone access only after the story reaches a choice
 - On-device speech recognition that is forbidden from falling back to the network
@@ -106,11 +106,11 @@ npm run test:live-speech
 Real-device acceptance checks:
 
 1. Pause and resume in the middle of every clip.
-2. Complete the story once through each choice and confirm both reach the green-door ending.
+2. Complete the story once through each option and confirm both outcomes return to the same green-door scene.
 3. Wait eight seconds at the choice; guidance plays once and the app keeps waiting.
 4. Background or terminate the app mid-clip; relaunch and choose continue or restart.
 5. Deny microphone permission; tap selection remains usable.
-6. Say a localized paraphrase of each choice and confirm the correct branch is selected.
+6. Say a localized paraphrase of each option and confirm the correct cosmetic outcome plays.
 7. Disable networking before speaking and confirm voice choice still works.
 8. On a device without the locale pack, confirm the download prompt appears and tap selection remains available.
 
