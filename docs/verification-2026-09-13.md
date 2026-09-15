@@ -33,3 +33,35 @@ files did not alter the managed Expo source tree.
 
 The OpenAI key remains server-only in the ignored `services/audio-api/.env`
 file and must never be added to the mobile application or committed.
+
+## Playable story slice update
+
+- The Turkish story graph now contains one opening, one two-way choice with
+  both responses, and one shared passage that stops immediately before the
+  second interactive choice.
+- The graph contains 86 speaker-separated audio records with stable ids.
+- Turkish global direction, reusable speaker profiles, and optional clip-level
+  direction are validated as separate fields.
+- Source-wording checks passed for the opening, both first-choice responses,
+  and the shared passage. The documented “Adı Çın.” continuity introduction is
+  the only added story sentence.
+- Mobile verification currently passes: 23 tests in 4 files plus TypeScript.
+- Audio service verification currently passes: 2 tests plus TypeScript.
+- Kullanıcı tarafından onaylanan 10 kayıtlık ses önizlemesi 15 Eylül 2026'da
+  üretildi; ardından ayrı kullanıcı onayıyla kalan 76 kayıt tamamlandı. Mevcut
+  10 önizleme dosyası korunarak yalnızca eksik kayıtlar API'ye gönderildi.
+- Hikâye grafiğindeki 86 ses kimliği 86 MP3 dosyasıyla bire bir eşleşiyor; eksik
+  veya fazla dosya yok. Dosyaların tamamı geçerli, tek kanallı, 24 kHz,
+  128 kb/sn MP3'tür.
+- Toplam ses süresi 437,088 saniye (7 dakika 17,088 saniye), toplam boyut
+  6.993.408 bayttır. Kayıt süreleri 0,816–20,400 saniye arasındadır.
+- Tam üretim sonrasında mobil testler (23/23), ses servisi testleri (2/2), iki
+  TypeScript kontrolü ve 86 hikâye MP3'ünün tamamını içeren Android Expo dışa
+  aktarımı geçti.
+- Seçimler arasındaki ayrı MP3'ler tek bir sürüklenebilir zaman çizgisi olarak
+  doğrulandı. Simülatörde duraklatılmış, oynayan ve tamamlanmış durumlarda ileri
+  ve geri sarma doğru kayda ve kayıt içi saniyeye geçti.
+- Üretilen MP3'ler Git tarafından yok sayılır; üretim derlemelerine ayrı artifact
+  veya object-storage iş akışıyla sağlanmalıdır.
+- Fiziksel cihazda dinleme ve kabul testi, önceki kullanıcı kararı doğrultusunda
+  ertelenmiş olarak kalmaktadır.

@@ -1,6 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  type AccessibilityActionEvent,
+  type GestureResponderEvent,
+  type LayoutChangeEvent,
   Modal,
   Pressable,
   StyleSheet,
@@ -9,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { sampleStory } from '../domain/sampleStory';
+import { hiddenGardenStory } from '../domain/hiddenGardenStory';
 import { useStoryPlayer } from '../hooks/useStoryPlayer';
 
 const palette = {
@@ -31,23 +34,118 @@ function formatTime(seconds: number) {
   return `${minutes}:${remainder.toString().padStart(2, '0')}`;
 }
 
+type StoryTimelineProps = {
+  elapsedSeconds: number;
+  totalSeconds: number;
+  label: string;
+  disabled: boolean;
+  onSeek: (seconds: number) => void;
+};
+
+function StoryTimeline({
+  elapsedSeconds,
+  totalSeconds,
+  label,
+  disabled,
+  onSeek,
+}: StoryTimelineProps) {
+  const [trackWidth, setTrackWidth] = useState(1);
+  const [previewSeconds, setPreviewSeconds] = useState<number | null>(null);
+  const displayedSeconds = previewSeconds ?? elapsedSeconds;
+  const progress = totalSeconds > 0 ? displayedSeconds / totalSeconds : 0;
+  const clampedProgress = Math.min(1, Math.max(0, progress));
+
+  const secondsFromEvent = (event: GestureResponderEvent) =>
+    Math.min(
+      totalSeconds,
+      Math.max(0, (event.nativeEvent.locationX / trackWidth) * totalSeconds),
+    );
+
+  const updatePreview = (event: GestureResponderEvent) => {
+    if (!disabled) setPreviewSeconds(secondsFromEvent(event));
+  };
+
+  const commitSeek = (event: GestureResponderEvent) => {
+    if (disabled) return;
+    const seconds = secondsFromEvent(event);
+    setPreviewSeconds(null);
+    onSeek(seconds);
+  };
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    setTrackWidth(Math.max(1, event.nativeEvent.layout.width));
+  };
+
+  const handleAccessibilityAction = (event: AccessibilityActionEvent) => {
+    if (disabled) return;
+    const difference = event.nativeEvent.actionName === 'increment' ? 10 : -10;
+    onSeek(Math.min(totalSeconds, Math.max(0, elapsedSeconds + difference)));
+  };
+
+  if (totalSeconds <= 0) return null;
+
+  return (
+    <View style={styles.timelineRegion}>
+      <View style={styles.timelineMeta}>
+        <Text style={styles.timelineLabel}>{label}</Text>
+        <Text style={styles.timelineTime}>
+          {formatTime(displayedSeconds)} / {formatTime(totalSeconds)}
+        </Text>
+      </View>
+      <View
+        accessible
+        accessibilityActions={[
+          { name: 'decrement', label: '10 saniye geri git' },
+          { name: 'increment', label: '10 saniye ileri git' },
+        ]}
+        accessibilityLabel={`${label} zaman çizgisi`}
+        accessibilityRole="adjustable"
+        accessibilityValue={{
+          min: 0,
+          max: Math.round(totalSeconds),
+          now: Math.round(displayedSeconds),
+          text: `${formatTime(displayedSeconds)} / ${formatTime(totalSeconds)}`,
+        }}
+        onAccessibilityAction={handleAccessibilityAction}
+        onLayout={handleLayout}
+        onMoveShouldSetResponder={() => !disabled}
+        onResponderGrant={updatePreview}
+        onResponderMove={updatePreview}
+        onResponderRelease={commitSeek}
+        onResponderTerminate={() => setPreviewSeconds(null)}
+        onStartShouldSetResponder={() => !disabled}
+        style={[styles.timelineTouchTarget, disabled && styles.timelineDisabled]}
+      >
+        <View style={styles.timelineTrack}>
+          <View style={[styles.timelineFill, { width: `${clampedProgress * 100}%` }]} />
+        </View>
+        <View
+          pointerEvents="none"
+          style={[styles.timelineThumb, { left: `${clampedProgress * 100}%` }]}
+        />
+      </View>
+    </View>
+  );
+}
+
 export function StoryPlayerScreen() {
-  const player = useStoryPlayer(sampleStory);
+  const player = useStoryPlayer(hiddenGardenStory);
   const {
     state,
-    status,
     choice,
     isHydrating,
     resumeSnapshot,
+    playbackSection,
+    playbackSectionElapsed,
     togglePlayback,
     chooseOption,
+    seekToPlaybackSection,
     startVoiceChoice,
     finishVoiceChoice,
     continueSaved,
     restart,
   } = player;
 
-  const progress = status.duration > 0 ? status.currentTime / status.duration : 0;
   const showChoices = Boolean(
     choice &&
       (state.mode === 'awaitingChoice' ||
@@ -131,11 +229,14 @@ export function StoryPlayerScreen() {
       <View style={styles.screen}>
         <View style={styles.header}>
           <View style={styles.episodeMark}>
-            <Text style={styles.episodeNumber}>{sampleStory.episode.number}</Text>
+            <Text style={styles.episodeNumber}>{hiddenGardenStory.episode.number}</Text>
           </View>
           <View style={styles.headerText}>
-            <Text style={styles.seriesTitle}>{sampleStory.title}</Text>
-            <Text style={styles.episodeTitle}>{sampleStory.episode.title}</Text>
+            <Text style={styles.seriesTitle}>{hiddenGardenStory.title}</Text>
+            <Text style={styles.episodeTitle}>{hiddenGardenStory.episode.title}</Text>
+            <Text style={styles.aiVoiceDisclosure}>
+              Anlatıcı sesi yapay zekâ ile oluşturulmuştur.
+            </Text>
           </View>
         </View>
 
@@ -143,9 +244,6 @@ export function StoryPlayerScreen() {
           <View style={styles.lampGlow} />
           <View style={styles.statusBlock}>
             <Text style={styles.statusText}>{listeningLabel}</Text>
-            <Text style={styles.timeText}>
-              {formatTime(status.currentTime)} / {formatTime(status.duration)}
-            </Text>
           </View>
 
           {showChoices && choice ? (
@@ -190,7 +288,7 @@ export function StoryPlayerScreen() {
               </View>
               <Text style={styles.quietMessage}>
                 {state.mode === 'completed'
-                  ? 'Yeşil kapının ardındaki macera seni bekliyor.'
+                  ? 'Hikâyenin test bölümü burada sona eriyor.'
                   : 'Ekranı izlemen gerekmiyor. Rahatça dinleyebilirsin.'}
               </Text>
             </View>
@@ -198,14 +296,17 @@ export function StoryPlayerScreen() {
         </View>
 
         <View style={styles.controls}>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${Math.min(100, Math.max(0, progress * 100))}%` },
-              ]}
+          {playbackSection ? (
+            <StoryTimeline
+              disabled={
+                state.mode === 'recordingChoice' || state.mode === 'resolvingChoice'
+              }
+              elapsedSeconds={playbackSectionElapsed}
+              label={playbackSection.label}
+              onSeek={seekToPlaybackSection}
+              totalSeconds={playbackSection.durationSeconds}
             />
-          </View>
+          ) : null}
 
           {state.message ? (
             <Text accessibilityLiveRegion="polite" style={styles.message}>
@@ -292,6 +393,7 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     fontWeight: '700',
   },
+  aiVoiceDisclosure: { color: palette.mist, fontSize: 11, lineHeight: 15, marginTop: 3 },
   room: { flex: 1, justifyContent: 'center', position: 'relative' },
   lampGlow: {
     position: 'absolute',
@@ -304,7 +406,6 @@ const styles = StyleSheet.create({
   },
   statusBlock: { alignItems: 'center', marginBottom: 24 },
   statusText: { color: palette.amber, fontSize: 16, fontWeight: '700' },
-  timeText: { color: palette.mist, fontSize: 13, marginTop: 6, fontVariant: ['tabular-nums'] },
   quietCenter: { alignItems: 'center', paddingHorizontal: 28 },
   soundBars: {
     height: 72,
@@ -346,15 +447,43 @@ const styles = StyleSheet.create({
   choiceLabel: { color: palette.moon, fontSize: 17, lineHeight: 24, fontWeight: '700' },
   voiceHint: { color: palette.mist, fontSize: 13, lineHeight: 18, marginTop: 14, textAlign: 'center' },
   controls: { alignItems: 'center', paddingBottom: 14 },
-  progressTrack: {
-    width: '100%',
-    height: 3,
-    backgroundColor: palette.inkBlue,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 18,
+  timelineRegion: { width: '100%', marginBottom: 16 },
+  timelineMeta: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  progressFill: { height: '100%', backgroundColor: palette.amber },
+  timelineLabel: { color: palette.moon, fontSize: 13, fontWeight: '700' },
+  timelineTime: {
+    color: palette.mist,
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+  },
+  timelineTouchTarget: {
+    width: '100%',
+    height: 44,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  timelineTrack: {
+    height: 7,
+    backgroundColor: palette.inkBlue,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  timelineFill: { height: '100%', backgroundColor: palette.amber },
+  timelineThumb: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    marginLeft: -10,
+    borderRadius: 10,
+    backgroundColor: palette.moon,
+    borderWidth: 4,
+    borderColor: palette.amber,
+  },
+  timelineDisabled: { opacity: 0.45 },
   message: {
     color: palette.moon,
     backgroundColor: palette.midnightRaised,

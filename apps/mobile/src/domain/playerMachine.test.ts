@@ -73,4 +73,20 @@ describe('story player state machine', () => {
     expect(restored.mode).toBe('paused');
     expect(restored.positionSeconds).toBe(8.25);
   });
+
+  it('seeks to a validated story segment and pauses at the requested position', () => {
+    const initial = createInitialPlayerState(sampleStory);
+    const sought = reducePlayer(sampleStory, { ...initial, mode: 'playing' }, {
+      type: 'SEEK',
+      nodeId: 'green-door',
+      segmentIndex: 0,
+      trackKind: 'narration',
+      selectedOptionId: null,
+      positionSeconds: 4.5,
+    });
+
+    expect(sought.nodeId).toBe('green-door');
+    expect(sought.mode).toBe('paused');
+    expect(sought.positionSeconds).toBe(4.5);
+  });
 });
