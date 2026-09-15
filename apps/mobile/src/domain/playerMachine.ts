@@ -31,6 +31,14 @@ export type PlayerEvent =
   | { type: 'PLAY' }
   | { type: 'PAUSE' }
   | { type: 'PROGRESS'; positionSeconds: number }
+  | {
+      type: 'SEEK';
+      nodeId: string;
+      segmentIndex: number;
+      trackKind: TrackKind;
+      selectedOptionId: string | null;
+      positionSeconds: number;
+    }
   | { type: 'AUDIO_FINISHED' }
   | { type: 'GUIDANCE_TIMEOUT' }
   | { type: 'START_RECORDING' }
@@ -165,6 +173,19 @@ export function reducePlayer(
       return state.mode === 'playing' ? { ...state, mode: 'paused' } : state;
     case 'PROGRESS':
       return { ...state, positionSeconds: Math.max(0, event.positionSeconds) };
+    case 'SEEK': {
+      const target = {
+        ...state,
+        nodeId: event.nodeId,
+        segmentIndex: event.segmentIndex,
+        trackKind: event.trackKind,
+        selectedOptionId: event.selectedOptionId,
+        positionSeconds: Math.max(0, event.positionSeconds),
+        mode: 'paused' as const,
+        message: null,
+      };
+      return getCurrentSegment(story, target) ? target : state;
+    }
     case 'AUDIO_FINISHED':
       return state.trackKind === 'narration'
         ? finishNarration(story, state)
