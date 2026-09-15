@@ -16,7 +16,7 @@ The included sample is a shortened section of **Rüzgârın Sakladığı Uçurtm
 - On-device speech recognition that is forbidden from falling back to the network
 - Local choice resolution from multiple transcript alternatives and localized hints
 - Local progress persistence and continue/restart recovery
-- A validated JSON story shape with `speaker`, `text`, `style`, and `audioKey`
+- A validated JSON story shape with `speaker`, `text`, and optional `direction`
 
 ## Run the mobile app
 
@@ -73,6 +73,21 @@ speech. `127.0.0.1` works for the iOS simulator. Use `10.0.2.2` for the Android
 emulator. A physical phone needs a reachable development-machine address and
 the server must be deliberately bound to that interface.
 
+Generated story narration is deliberately ignored by Git. To create the hidden
+garden audio locally, load the server-only key and run:
+
+```bash
+cd services/audio-api
+set -a && source .env && set +a
+npm run generate:hidden-garden-preview # representative 10-clip review set
+npm run generate:hidden-garden-slice   # all missing clips in the playable slice
+```
+
+The resulting MP3 files live under `apps/mobile/assets/audio/<story>/<locale>/`
+for local builds. Production builds must receive the same versioned files from
+the deployment's private artifact or object-storage workflow; they must not be
+committed to this repository.
+
 ## Verify
 
 ```bash
@@ -111,7 +126,9 @@ checks are recorded in
 {
   "speaker": "narrator",
   "text": "Kapının ardında hafif bir ışık görünüyordu.",
-  "style": "Quiet, mysterious and curious. Build gentle suspense.",
+  "globalDirection": "Sekiz-on yaş grubu için sıcak bir hikâye anlatımı kullan.",
+  "speakerProfile": "Sakin, anlaşılır ve merak uyandıran bir anlatıcı.",
+  "direction": "Hafif bir merak duygusu oluştur.",
   "voice": "marin"
 }
 ```

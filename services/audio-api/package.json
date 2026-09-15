@@ -8,7 +8,9 @@
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:live-speech": "tsx src/liveSpeechCheck.ts"
+    "test:live-speech": "tsx src/liveSpeechCheck.ts",
+    "generate:hidden-garden-preview": "tsx src/generateHiddenGardenSlice.ts --preview",
+    "generate:hidden-garden-slice": "tsx src/generateHiddenGardenSlice.ts"
   },
   "dependencies": {
     "fastify": "^5.12.4",

@@ -151,8 +151,12 @@ export function useStoryPlayer(story: Story) {
     finishedSegmentRef.current = null;
     readySegmentRef.current = null;
     player.pause();
-    player.replace(getAudioSource(currentSegment.audioKey));
-  }, [currentSegment?.id, player]);
+    player.replace(
+      getAudioSource(
+        currentSegment.audioKey ?? `${story.id}/${story.language}/${currentSegment.id}`,
+      ),
+    );
+  }, [currentSegment?.id, player, story.id, story.language]);
 
   useEffect(() => {
     if (
@@ -327,11 +331,17 @@ export function useStoryPlayer(story: Story) {
     if (!resumeSnapshot) return;
     dispatch({ type: 'RESTORE', snapshot: resumeSnapshot });
     setResumeSnapshot(null);
-    player.replace(
-      getAudioSource(
-        getCurrentSegment(story, { ...resumeSnapshot, mode: 'paused' })?.audioKey ?? 'intro',
-      ),
-    );
+    const savedSegment = getCurrentSegment(story, {
+      ...resumeSnapshot,
+      mode: 'paused',
+    });
+    if (savedSegment) {
+      player.replace(
+        getAudioSource(
+          savedSegment.audioKey ?? `${story.id}/${story.language}/${savedSegment.id}`,
+        ),
+      );
+    }
     if (resumeSnapshot.positionSeconds > 0) {
       setTimeout(() => {
         player.seekTo(resumeSnapshot.positionSeconds).catch(() => undefined);

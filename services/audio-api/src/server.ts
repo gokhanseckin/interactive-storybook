@@ -7,7 +7,9 @@ import { buildAudioInstructions } from './prompts.js';
 const TtsRequestSchema = z.object({
   text: z.string().min(1).max(4096),
   speaker: z.string().min(1).max(80),
-  style: z.string().min(1).max(500),
+  globalDirection: z.string().min(1).max(1_000),
+  speakerProfile: z.string().min(1).max(500),
+  direction: z.string().min(1).max(500).optional(),
   voice: z.string().min(1).default('marin'),
 });
 
@@ -34,7 +36,12 @@ app.post('/v1/tts', async (request, reply) => {
     model: 'gpt-4o-mini-tts',
     voice: parsed.data.voice,
     input: parsed.data.text,
-    instructions: buildAudioInstructions(parsed.data.speaker, parsed.data.style),
+    instructions: buildAudioInstructions({
+      globalDirection: parsed.data.globalDirection,
+      speaker: parsed.data.speaker,
+      speakerProfile: parsed.data.speakerProfile,
+      direction: parsed.data.direction,
+    }),
     response_format: 'mp3',
   });
 
