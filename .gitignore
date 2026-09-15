@@ -7,3 +7,6 @@ node_modules/
 coverage/
 dist/
 .expo/
+
+# Generated narration is kept outside Git and supplied to app builds separately.
+/apps/mobile/assets/audio/*/*/*.mp3

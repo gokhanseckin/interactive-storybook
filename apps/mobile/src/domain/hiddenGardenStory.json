@@ -1,0 +1,561 @@
+{
+  "schemaVersion": 1,
+  "id": "calilarin-ardindaki-gizli-bahce-test",
+  "title": "Çalıların Ardındaki Gizli Bahçe",
+  "language": "tr-TR",
+  "ageBand": "8-10",
+  "voice": {
+    "providerVoice": "marin",
+    "globalDirection": "Sekiz-on yaş grubu için sıcak, canlı ve merak uyandıran bir Türkçe hikâye anlatımı kullan. Anlaşılır konuş; çocuksu veya abartılı olma. Gerilimi acele etmeden kur ve hareketli bölümlerde ritmi hafifçe yükselt.",
+    "speakerProfiles": {
+      "narrator": "Sıcak, canlı ve merak uyandıran bir Türkçe hikâye anlatıcısı. Anlaşılır konuş; gerilimi acele etmeden kur ve hareketli bölümlerde ritmi hafifçe yükselt.",
+      "mila": "Sakin, becerikli ve meraklı. Dinleyici Mila’nın yerinde olduğu için güçlü bir karakter taklidi veya abartılı oyunculuk kullanma.",
+      "lara": "Hızlı, oyuncu, açıkça meraklı ve neşeli. Enerjik konuş ama bağırma.",
+      "talha": "Ayakları yere basan, biraz temkinli ve doğal bir komedi ritmine sahip. Alaycı konuşma.",
+      "neva": "Sessiz, dikkatli ve ölçülü. Kısa sözleri düşünülmüş ve önemli hissettir.",
+      "cin-karga": "Tiyatrocu ve ciddiymiş gibi davranan komik bir karga. Tuhaf cümlelerin çevresinde görkemli duraklamalar kullan; gizemli ol ama korkutucu olma.",
+      "bay-makara": "Neşeli ve kendini önemli gören bir konuşmacı. Konferans veriyormuş gibi ritmik ve komik bir özgüven kullan."
+    }
+  },
+  "episode": {
+    "number": 1,
+    "title": "Kaybolan Top"
+  },
+  "entryNodeId": "lost-ball-intro",
+  "nodes": {
+    "lost-ball-intro": {
+      "id": "lost-ball-intro",
+      "kind": "narration",
+      "segments": [
+        {
+          "id": "intro-01",
+          "speaker": "narrator",
+          "text": "Öğleden sonra hava çok güzeldi. Ne çok sıcak ne de çok serindi. Hafif bir rüzgâr esiyor, ağaçların yapraklarını sallıyordu."
+        },
+        {
+          "id": "intro-02",
+          "speaker": "narrator",
+          "text": "Sen Mila’sın. Küçük kardeşin Lara, komşunuz Talha ve onun küçük kardeşi Neva ile dışarıda oynuyorsun. Bazen top oynuyor, bazen birbirinizi kovalıyor, bazen de topu duvara atıp yakalamaya çalışıyorsunuz."
+        },
+        {
+          "id": "intro-03",
+          "speaker": "narrator",
+          "text": "Lara topu sana doğru fırlatıyor.",
+          "direction": "Şimdiki harekete geçerken tempoyu hafifçe yükselt."
+        },
+        {
+          "id": "intro-04",
+          "speaker": "lara",
+          "text": "Hazır ol!",
+          "direction": "Dostça bir uyarı gibi söyle; enerjik ol ama bağırma."
+        },
+        {
+          "id": "intro-05",
+          "speaker": "narrator",
+          "text": "Top biraz fazla yükseğe çıkıyor. Yakalamak için iki adım geri gidiyorsun. Ama top parmaklarının üzerinden geçiyor. Pof! Yere çarpıyor. Bir kez daha zıplıyor. Ve yolun kenarındaki büyük çalıların arasına giriyor.",
+          "direction": "Pof sözcüğünü yumuşak bir çarpma sesi gibi canlandır; top çalılarda kaybolurken hafif bir merak oluştur."
+        },
+        {
+          "id": "intro-06",
+          "speaker": "talha",
+          "text": "Ben bulurum!",
+          "direction": "Hemen öne atılan, arkadaşça ve kendinden emin bir tepki."
+        },
+        {
+          "id": "intro-07",
+          "speaker": "narrator",
+          "text": "diyor Talha. Hepiniz çalılara doğru koşuyorsunuz. Bu çalıları daha önce yüzlerce kez görmüştünüz. Eski bir taş duvarın önünde duran büyük bir yaprak yığını gibi görünürlerdi. Talha iki dalı yana çekiyor. Top görünmüyor. Lara eğilip bakıyor.",
+          "direction": "Koşarken canlı başla; tanıdık yer tuhaflaşmaya başladığında yavaşla."
+        },
+        {
+          "id": "intro-08",
+          "speaker": "lara",
+          "text": "Daha içeri gitmiş."
+        },
+        {
+          "id": "intro-09",
+          "speaker": "narrator",
+          "text": "Sen de birkaç dalı yana itiyorsun. Ve o anda garip bir şey fark ediyorsun. Çalıların arkası düşündüğünden çok daha derin. Hatta orada bir geçit var.",
+          "direction": "Keşfi yavaşça kur; çok daha derin sözünü vurgula ve son cümleden önce kısa bir merak duraklaması bırak."
+        },
+        {
+          "id": "intro-10",
+          "speaker": "mila",
+          "text": "Bir dakika!",
+          "direction": "Korkuyla değil, önemli bir şey fark etmiş gibi söyle."
+        },
+        {
+          "id": "intro-11",
+          "speaker": "narrator",
+          "text": "Dalları biraz daha açıyorsun. Kuru yapraklar yere dökülüyor. Karşınıza dar bir patika çıkıyor. Patika ancak bir kişinin geçebileceği kadar geniş. Ama sokaktan bakınca hiç görünmüyor. Talha şaşkınlıkla:",
+          "direction": "Gizli patikayı yumuşak bir hayret duygusuyla ortaya çıkar."
+        },
+        {
+          "id": "intro-12",
+          "speaker": "talha",
+          "text": "Bu yol hep burada mıydı?",
+          "direction": "Şaşkın ve biraz temkinli sor."
+        },
+        {
+          "id": "intro-12a",
+          "speaker": "narrator",
+          "text": "Lara hemen cevap veriyor:"
+        },
+        {
+          "id": "intro-13",
+          "speaker": "lara",
+          "text": "Bu kesinlikle gizli bir yol!",
+          "direction": "Keşiften açıkça heyecan duyarak söyle."
+        },
+        {
+          "id": "intro-14",
+          "speaker": "narrator",
+          "text": "Neva ise yere çömelmiş."
+        },
+        {
+          "id": "intro-15",
+          "speaker": "mila",
+          "text": "Neva?",
+          "direction": "Neva’nın ne bulduğunu merak ederek sor."
+        },
+        {
+          "id": "intro-16",
+          "speaker": "narrator",
+          "text": "Neva avucunu açıyor. Elinde yuvarlak, sarı bir taş var. Taşın üzerinde küçük bir güneş resmi bulunuyor."
+        },
+        {
+          "id": "intro-17",
+          "speaker": "narrator",
+          "text": "Hepiniz taşı incelerken çalıların arkasından ince bir metal sesi geliyor. Ting! Hepiniz susuyorsunuz. Bir saniye sonra: Tak! Tak! Tak!",
+          "direction": "Metal seslerini belirgin ama korkutmayacak şekilde canlandır; iki ses dizisi arasında meraklı bir sessizlik bırak."
+        },
+        {
+          "id": "intro-18",
+          "speaker": "narrator",
+          "text": "Eski taş duvarın üzerinden siyah bir baş uzanıyor. Bir karga. Adı Çın. Ama sıradan bir karga değil. Boynunda paslı küçük bir anahtar taşıyor. Gagasının ucunda da parlak bir metal pul var. Karga başını yana eğiyor.",
+          "direction": "Kısa keşif duraklamaları kullan; Çın’ı gizemli ama güvenli tanıt."
+        },
+        {
+          "id": "intro-19",
+          "speaker": "cin-karga",
+          "text": "Dört çocuk.",
+          "direction": "Kesin bir gözlem gibi söyle ve ardından görkemli bir duraklama bırak."
+        },
+        {
+          "id": "intro-20",
+          "speaker": "narrator",
+          "text": "Birbirinize bakıyorsunuz. Karga tekrar konuşuyor."
+        },
+        {
+          "id": "intro-21",
+          "speaker": "cin-karga",
+          "text": "Bir top.",
+          "direction": "Aynı ciddi sayma ritmini koru; kendinden hafifçe memnun duyul."
+        },
+        {
+          "id": "intro-22",
+          "speaker": "narrator",
+          "text": "Lara’nın ağzı açık kalıyor."
+        },
+        {
+          "id": "intro-23",
+          "speaker": "lara",
+          "text": "Sen… konuşabiliyor musun?",
+          "direction": "Üç noktayı gerçek bir şaşkınlık duraklaması gibi kullan."
+        },
+        {
+          "id": "intro-24",
+          "speaker": "narrator",
+          "text": "Karga kanatlarını açıyor."
+        },
+        {
+          "id": "intro-25",
+          "speaker": "cin-karga",
+          "text": "Hayır.",
+          "direction": "Tamamen ciddi ve kuru bir komedi tonuyla söyle."
+        },
+        {
+          "id": "intro-26",
+          "speaker": "narrator",
+          "text": "Bir saniye bekliyor."
+        },
+        {
+          "id": "intro-27",
+          "speaker": "cin-karga",
+          "text": "Ben opera söylüyorum.",
+          "direction": "Görkemli ve kendini önemli gören bir şekilde söyle."
+        },
+        {
+          "id": "intro-28",
+          "speaker": "narrator",
+          "text": "Talha kaşlarını çatıyor."
+        },
+        {
+          "id": "intro-29",
+          "speaker": "talha",
+          "text": "Ama az önce konuştun.",
+          "direction": "Abartmadan, şaşkın ve mantıklı bir düzeltme gibi söyle."
+        },
+        {
+          "id": "intro-30",
+          "speaker": "narrator",
+          "text": "Karga onu duymamış gibi davranıyor. Sonra Neva’nın elindeki sarı taşı görüyor. Gözleri büyüyor."
+        },
+        {
+          "id": "intro-31",
+          "speaker": "cin-karga",
+          "text": "Güneş!",
+          "direction": "Önemli bir ipucu görmüş gibi ani bir heyecanla söyle."
+        },
+        {
+          "id": "intro-32",
+          "speaker": "narrator",
+          "text": "Karga duvarın üzerinde üç kez zıplıyor."
+        },
+        {
+          "id": "intro-33",
+          "speaker": "cin-karga",
+          "text": "Güneş. Ay. Yıldız.",
+          "direction": "Üç sözcüğü yavaş, ayrı ve akılda kalıcı söyle."
+        },
+        {
+          "id": "intro-34",
+          "speaker": "narrator",
+          "text": "Sonra gagasını size doğru uzatıyor."
+        },
+        {
+          "id": "intro-35",
+          "speaker": "cin-karga",
+          "text": "Birini görürsen diğer ikisini de unutma.",
+          "direction": "Bir bilmece kadar önemli, ama dostça bir uyarı gibi söyle."
+        },
+        {
+          "id": "intro-36",
+          "speaker": "narrator",
+          "text": "Lara soruyor."
+        },
+        {
+          "id": "intro-37",
+          "speaker": "lara",
+          "text": "Neden?"
+        },
+        {
+          "id": "intro-38",
+          "speaker": "narrator",
+          "text": "Karga kanatlarını çırpıyor."
+        },
+        {
+          "id": "intro-39",
+          "speaker": "cin-karga",
+          "text": "Çünkü ben açıklama yapan bir karga değilim.",
+          "direction": "Kendinden emin, tiyatrocu ve kuru bir son söz gibi söyle."
+        },
+        {
+          "id": "intro-40",
+          "speaker": "narrator",
+          "text": "Ve duvarın diğer tarafına atlıyor. Kayboluyor. Talha bir süre duvara bakıyor."
+        },
+        {
+          "id": "intro-41",
+          "speaker": "talha",
+          "text": "Burası gittikçe garipleşiyor.",
+          "direction": "Şaşkın ama merakını da gizleyemeyen kuru bir ton kullan."
+        },
+        {
+          "id": "intro-42",
+          "speaker": "narrator",
+          "text": "Çalıların içinden top görünmüyor. Ama patika önünüzde uzanıyor.",
+          "direction": "İlk seçime doğru hafif bir beklenti oluştur."
+        }
+      ],
+      "nextNodeId": "hidden-path-choice"
+    },
+    "hidden-path-choice": {
+      "id": "hidden-path-choice",
+      "kind": "choice",
+      "promptSegments": [
+        {
+          "id": "choice-01-prompt",
+          "speaker": "narrator",
+          "text": "Nasıl devam etmek istersin? Hemen patikadan ilerleyip topu bulmak mı, yoksa önce girişin etrafına dikkatlice bakmak mı?",
+          "direction": "Sıcak ve tamamen tarafsız söyle. Yoksa sözcüğünden önce belirgin bir duraklama bırak; seçeneklerden birini daha hevesli okuma."
+        }
+      ],
+      "guidanceSegment": {
+        "id": "choice-01-guidance",
+        "speaker": "narrator",
+        "text": "İki seçenekten birini söyleyebilir veya ekrandaki seçeneğe dokunabilirsin.",
+        "direction": "Kısa, sabırlı ve destekleyici söyle; düzeltme yapıyormuş gibi konuşma."
+      },
+      "options": [
+        {
+          "id": "follow-path-now",
+          "label": "Hemen patikadan ilerle",
+          "voiceHints": [
+            "patikadan ilerle",
+            "hemen ilerleyelim",
+            "topu arayalım",
+            "doğrudan gidelim",
+            "patikaya girelim",
+            "önce topu bulalım"
+          ],
+          "responseSegments": [
+            {
+              "id": "choice-01-a-01",
+              "speaker": "narrator",
+              "text": "Önden yürümeye başlıyorsun. Dallar kollarına hafifçe değiyor. Lara, Talha ve Neva arkandan geliyor. Birkaç adım sonra ayağın bir şeye çarpıyor. Pof! Top!",
+              "direction": "İlerleme duygusuyla başla; top bulunduğunda eğlenceli bir şaşkınlık yarat."
+            },
+            {
+              "id": "choice-01-a-02",
+              "speaker": "mila",
+              "text": "Buldum!",
+              "direction": "Kendiliğinden gelen mutlu bir başarı tepkisi."
+            },
+            {
+              "id": "choice-01-a-03",
+              "speaker": "narrator",
+              "text": "Topu alırken ayağının altından metal bir ses geliyor. TANG! Hepiniz sıçrıyorsunuz. Toprağa yarı gömülmüş eski bir metal levhaya basmışsın. Üzerindeki yazılar silinmiş. Ama üç şekil hâlâ görünüyor. Bir güneş. Bir ay. Bir yıldız.",
+              "direction": "Metal sesini keskin ama korkutmayacak şekilde canlandır; üç sembolü akılda kalması için yavaş ve ayrı söyle."
+            },
+            {
+              "id": "choice-01-a-04",
+              "speaker": "narrator",
+              "text": "Uzaktan karganın sesi geliyor."
+            },
+            {
+              "id": "choice-01-a-05",
+              "speaker": "cin-karga",
+              "text": "Üç!",
+              "direction": "Uzaktan gelen tiyatrocu ve kendinden emin bir ses."
+            },
+            {
+              "id": "choice-01-a-06",
+              "speaker": "narrator",
+              "text": "Lara gülüyor."
+            },
+            {
+              "id": "choice-01-a-07",
+              "speaker": "lara",
+              "text": "Bizi dinliyor!",
+              "direction": "Şaşkınlıktan çok eğlenerek söyle."
+            }
+          ]
+        },
+        {
+          "id": "inspect-entrance-first",
+          "label": "Önce girişi incele",
+          "voiceHints": [
+            "girişi incele",
+            "önce etrafa bakalım",
+            "çevreye bakalım",
+            "dikkatlice arayalım",
+            "yosunlara bakalım",
+            "önce girişe bak"
+          ],
+          "responseSegments": [
+            {
+              "id": "choice-01-b-01",
+              "speaker": "narrator",
+              "text": "Girişin çevresini dikkatlice inceliyorsun. Yosunların arasında düz bir şey görüyorsun. Elinle yosunu temizliyorsun. Altından küçük bir metal levha çıkıyor. Üzerindeki yazılar silinmiş. Ama üç sembol hâlâ görünüyor. Bir güneş. Bir ay. Bir yıldız.",
+              "direction": "Sessiz bir gözlemle başla ve tatmin edici bir keşfe dönüş; üç sembolü yavaş ve ayrı söyle."
+            },
+            {
+              "id": "choice-01-b-02",
+              "speaker": "narrator",
+              "text": "Tam o sırada duvarın üzerinden Çın Karga’nın gagası beliriyor."
+            },
+            {
+              "id": "choice-01-b-03",
+              "speaker": "cin-karga",
+              "text": "Üç!",
+              "direction": "Yukarıdan gelen ani ve tiyatrocu bir müdahale; komik ol ama korkutma."
+            },
+            {
+              "id": "choice-01-b-04",
+              "speaker": "narrator",
+              "text": "Sonra tekrar kayboluyor. Lara gülüyor."
+            },
+            {
+              "id": "choice-01-b-05",
+              "speaker": "lara",
+              "text": "Gerçekten çok tuhaf bir karga.",
+              "direction": "Çın’ı sevmeye başlamış gibi eğlenerek söyle."
+            },
+            {
+              "id": "choice-01-b-06",
+              "speaker": "narrator",
+              "text": "İçeriden Talha sesleniyor."
+            },
+            {
+              "id": "choice-01-b-07",
+              "speaker": "talha",
+              "text": "Top burada!",
+              "direction": "Biraz uzaktan, bulduğu şeyi arkadaşlarına duyurarak söyle."
+            },
+            {
+              "id": "choice-01-b-08",
+              "speaker": "narrator",
+              "text": "Topu alıp yanınıza geliyor."
+            }
+          ]
+        }
+      ],
+      "nextNodeId": "road-to-second-choice"
+    },
+    "road-to-second-choice": {
+      "id": "road-to-second-choice",
+      "kind": "narration",
+      "segments": [
+        {
+          "id": "shared-01",
+          "speaker": "narrator",
+          "text": "Topunuzu buldunuz. Aslında artık eve dönebilirsiniz. Ama hiç kimse dönmek istemiyor."
+        },
+        {
+          "id": "shared-02",
+          "speaker": "narrator",
+          "text": "Çünkü patika önünüzde devam ediyor. Taşların üzerine küçük oklar çizilmiş. Eski duvarın bazı yerlerini sarmaşıklar kaplamış. En tuhafı ise şu: Birkaç adım ilerleyince mahallenin sesleri yavaş yavaş kayboluyor.",
+          "direction": "Mahallenin sesleri kaybolurken anlatımı yavaşça yumuşat ve merakı artır."
+        },
+        {
+          "id": "shared-03",
+          "speaker": "narrator",
+          "text": "Arabalar duyulmuyor. İnsan sesleri yok. Sadece kuşlar… Rüzgâr… Ve yaprakların sesi. Neva sarı güneş taşını hâlâ elinde tutuyor.",
+          "direction": "Ferah ve duyusal anlat; geriye kalan her sese nefes alacak alan bırak."
+        },
+        {
+          "id": "shared-04",
+          "speaker": "narrator",
+          "text": "Biraz sonra yol ikiye ayrılıyor. Sağ tarafta düz taşlar var. Taşların üzerinde ok işaretleri görülüyor. Sol tarafta ise ağaçlara bağlanmış mavi kurdeleler sallanıyor.",
+          "direction": "İki yolun konumunu net ve dengeli anlat."
+        },
+        {
+          "id": "shared-05",
+          "speaker": "narrator",
+          "text": "Tam karar vermeye çalışırken yukarıdan ince bir ses geliyor.",
+          "direction": "Görünmeyen ses geldiğinde enerjiyi hafifçe yükselt."
+        },
+        {
+          "id": "shared-06",
+          "speaker": "bay-makara",
+          "text": "Durun!",
+          "direction": "Yukarıdan gelen neşeli ve kendinden emin bir uyarı."
+        },
+        {
+          "id": "shared-07",
+          "speaker": "narrator",
+          "text": "Başınızı kaldırıyorsunuz. Bir ağacın dalından kocaman mavi bir iplik makarası sarkıyor. Makaranın etrafındaki mavi kurdele ona uzun bir atkı gibi dolanmış. Üzerine iki küçük göz çizilmiş. Makara sallanıyor.",
+          "direction": "Bay Makara’nın görünüşünü sıcak bir şaşkınlık ve hafif komediyle tanıt."
+        },
+        {
+          "id": "shared-08",
+          "speaker": "bay-makara",
+          "text": "Ben Bay Makara.",
+          "direction": "Kendini önemli bir konuşmacı gibi gururla tanıt."
+        },
+        {
+          "id": "shared-09",
+          "speaker": "narrator",
+          "text": "Talha ağaca bakıyor."
+        },
+        {
+          "id": "shared-10",
+          "speaker": "talha",
+          "text": "Sen de mi konuşuyorsun?",
+          "direction": "Artık şaşırmaktan biraz yorulmuş ama hâlâ meraklı bir ton kullan."
+        },
+        {
+          "id": "shared-11",
+          "speaker": "bay-makara",
+          "text": "Hayır.",
+          "direction": "Çın Karga’nın önceki şakasını hatırlatan ciddi bir ton kullan."
+        },
+        {
+          "id": "shared-12",
+          "speaker": "narrator",
+          "text": "Bay Makara hafifçe dönüyor."
+        },
+        {
+          "id": "shared-13",
+          "speaker": "bay-makara",
+          "text": "Ben konferans veriyorum.",
+          "direction": "Kendinden çok emin bir konferans açılışı ve kuru bir şaka gibi söyle."
+        },
+        {
+          "id": "shared-14",
+          "speaker": "narrator",
+          "text": "Lara gülüyor."
+        },
+        {
+          "id": "shared-15",
+          "speaker": "lara",
+          "text": "Bu bahçedeki herkes böyle mi?",
+          "direction": "Eğlenerek ve gerçekten merak ederek sor."
+        },
+        {
+          "id": "shared-16",
+          "speaker": "narrator",
+          "text": "Bay Makara sağdaki taşlara bakıyor."
+        },
+        {
+          "id": "shared-17",
+          "speaker": "bay-makara",
+          "text": "Okların yolu düzenlidir.",
+          "direction": "Bir dersin önemli maddesini açıklıyormuş gibi ritmik söyle."
+        },
+        {
+          "id": "shared-18",
+          "speaker": "narrator",
+          "text": "Sonra soldaki kurdelelere bakıyor."
+        },
+        {
+          "id": "shared-19",
+          "speaker": "bay-makara",
+          "text": "Kurdelelerin yolu ise meraklıdır.",
+          "direction": "Meraklıdır sözcüğünü hafif bir gizem ve keyifle vurgula."
+        },
+        {
+          "id": "shared-20",
+          "speaker": "narrator",
+          "text": "“Hangisi daha iyi?” diye soruyorsun.",
+          "direction": "Soruyu Mila’nın doğal ve tarafsız merakıyla aktar."
+        },
+        {
+          "id": "shared-21",
+          "speaker": "narrator",
+          "text": "Bay Makara bir tur dönüyor."
+        },
+        {
+          "id": "shared-22",
+          "speaker": "bay-makara",
+          "text": "İyi mi?",
+          "direction": "Kelimeyi şaşırtıcı ve pek ilginç bulmamış gibi tekrarla."
+        },
+        {
+          "id": "shared-23",
+          "speaker": "narrator",
+          "text": "İki tur daha dönüyor."
+        },
+        {
+          "id": "shared-24",
+          "speaker": "bay-makara",
+          "text": "Sıkıcı bir kelime.",
+          "direction": "Kendinden emin bir hüküm ve hafif komediyle söyle."
+        },
+        {
+          "id": "shared-25",
+          "speaker": "narrator",
+          "text": "Sonra size dönüyor."
+        },
+        {
+          "id": "shared-26",
+          "speaker": "bay-makara",
+          "text": "Birini seçin.",
+          "direction": "Neşeli bir meydan okuma ve bir sonraki seçime davet gibi söyle."
+        }
+      ],
+      "nextNodeId": null
+    }
+  }
+}

@@ -14,10 +14,11 @@ const speech = await openai.audio.speech.create({
   model: 'gpt-4o-mini-tts',
   voice: 'marin',
   input: expectedPhrase,
-  instructions: buildAudioInstructions(
-    'narrator',
-    'Warm, clear Turkish. Speak at a calm storybook pace.',
-  ),
+  instructions: buildAudioInstructions({
+    globalDirection: 'Sıcak ve anlaşılır bir Türkçe hikâye anlatımı kullan.',
+    speaker: 'narrator',
+    speakerProfile: 'Sakin, doğal ve merak uyandıran bir anlatıcı.',
+  }),
   response_format: 'mp3',
 });
 

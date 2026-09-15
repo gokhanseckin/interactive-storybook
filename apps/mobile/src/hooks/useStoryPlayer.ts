@@ -11,7 +11,13 @@ import {
 } from 'expo-speech-recognition';
 
 import { getAudioSource } from '../audio/audioAssets';
+import { getAudioDurationSeconds } from '../audio/audioDurations';
 import { resolveChoiceFromTranscripts } from '../domain/choiceResolver';
+import {
+  buildPlaybackSection,
+  findPlaybackSectionTarget,
+  getPlaybackSectionElapsed,
+} from '../domain/playbackSection';
 import {
   createInitialPlayerState,
   getChoiceNode,
@@ -51,9 +57,23 @@ export function useStoryPlayer(story: Story) {
   const voiceResultHandledRef = useRef(false);
   const finishedSegmentRef = useRef<string | null>(null);
   const readySegmentRef = useRef<string | null>(null);
+  const pendingSeekRef = useRef<{
+    requestId: number;
+    segmentId: string;
+    positionSeconds: number;
+    resumeAfterSeek: boolean;
+  } | null>(null);
+  const seekRequestIdRef = useRef(0);
   const lastSavedSecondRef = useRef(-1);
   const player = useAudioPlayer(null, { updateInterval: 250, downloadFirst: true });
   const status = useAudioPlayerStatus(player);
+  const playbackSection = useMemo(
+    () => buildPlaybackSection(story, state, getAudioDurationSeconds),
+    [state, story],
+  );
+  const playbackSectionElapsed = playbackSection
+    ? getPlaybackSectionElapsed(playbackSection, state, status.currentTime)
+    : 0;
 
   const dispatch = useCallback((event: PlayerEvent) => {
     dispatchBase(event);
@@ -151,8 +171,12 @@ export function useStoryPlayer(story: Story) {
     finishedSegmentRef.current = null;
     readySegmentRef.current = null;
     player.pause();
-    player.replace(getAudioSource(currentSegment.audioKey));
-  }, [currentSegment?.id, player]);
+    player.replace(
+      getAudioSource(
+        currentSegment.audioKey ?? `${story.id}/${story.language}/${currentSegment.id}`,
+      ),
+    );
+  }, [currentSegment?.id, player, story.id, story.language]);
 
   useEffect(() => {
     if (
@@ -164,6 +188,29 @@ export function useStoryPlayer(story: Story) {
       readySegmentRef.current = currentSegment.id;
     }
   }, [currentSegment, status.currentTime, status.didJustFinish, status.isLoaded]);
+
+  useEffect(() => {
+    const pending = pendingSeekRef.current;
+    if (
+      !pending ||
+      !currentSegment ||
+      pending.segmentId !== currentSegment.id ||
+      readySegmentRef.current !== currentSegment.id ||
+      !status.isLoaded
+    ) {
+      return;
+    }
+
+    pendingSeekRef.current = null;
+    player.seekTo(pending.positionSeconds).then(() => {
+      if (
+        pending.resumeAfterSeek &&
+        seekRequestIdRef.current === pending.requestId
+      ) {
+        dispatch({ type: 'PLAY' });
+      }
+    }).catch(() => undefined);
+  }, [currentSegment, dispatch, player, status.isLoaded]);
 
   useEffect(() => {
     if (state.mode === 'playing' && currentSegment) {
@@ -232,6 +279,33 @@ export function useStoryPlayer(story: Story) {
       dispatch({ type: 'SELECT_OPTION', optionId });
     },
     [dispatch, player],
+  );
+
+  const seekToPlaybackSection = useCallback(
+    (seconds: number) => {
+      if (!playbackSection) return;
+      const target = findPlaybackSectionTarget(playbackSection, seconds);
+      if (!target) return;
+
+      const requestId = seekRequestIdRef.current + 1;
+      seekRequestIdRef.current = requestId;
+      pendingSeekRef.current = {
+        requestId,
+        segmentId: target.item.segment.id,
+        positionSeconds: target.positionSeconds,
+        resumeAfterSeek: state.mode === 'playing',
+      };
+      player.pause();
+      dispatch({
+        type: 'SEEK',
+        nodeId: target.item.nodeId,
+        segmentIndex: target.item.segmentIndex,
+        trackKind: target.item.trackKind,
+        selectedOptionId: target.item.selectedOptionId,
+        positionSeconds: target.positionSeconds,
+      });
+    },
+    [dispatch, playbackSection, player, state.mode],
   );
 
   const startVoiceChoice = useCallback(async () => {
@@ -327,11 +401,17 @@ export function useStoryPlayer(story: Story) {
     if (!resumeSnapshot) return;
     dispatch({ type: 'RESTORE', snapshot: resumeSnapshot });
     setResumeSnapshot(null);
-    player.replace(
-      getAudioSource(
-        getCurrentSegment(story, { ...resumeSnapshot, mode: 'paused' })?.audioKey ?? 'intro',
-      ),
-    );
+    const savedSegment = getCurrentSegment(story, {
+      ...resumeSnapshot,
+      mode: 'paused',
+    });
+    if (savedSegment) {
+      player.replace(
+        getAudioSource(
+          savedSegment.audioKey ?? `${story.id}/${story.language}/${savedSegment.id}`,
+        ),
+      );
+    }
     if (resumeSnapshot.positionSeconds > 0) {
       setTimeout(() => {
         player.seekTo(resumeSnapshot.positionSeconds).catch(() => undefined);
@@ -351,10 +431,13 @@ export function useStoryPlayer(story: Story) {
     status,
     choice,
     currentSegment,
+    playbackSection,
+    playbackSectionElapsed,
     isHydrating,
     resumeSnapshot,
     togglePlayback,
     chooseOption,
+    seekToPlaybackSection,
     startVoiceChoice,
     finishVoiceChoice,
     continueSaved,
