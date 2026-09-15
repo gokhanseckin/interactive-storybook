@@ -27,8 +27,8 @@ Point of view: Second person; the listener is Mila
 ## Initial assessment
 
 The manuscript is approximately 4,000 words and contains ten binary choices.
-Every branch reconnects to a common path, which matches the current player
-model. Choices reward observation, listening, memory, and collaboration without
+Every option plays a short cosmetic outcome, then returns to the same fixed
+story sequence. Choices reward observation, listening, memory, and collaboration without
 punishing the child for selecting the less direct option.
 
 Do not rewrite the source while preparing the app edition. Editorial changes
@@ -48,8 +48,8 @@ Publish the story as three connected episodes rather than one long audio file:
 
 This keeps listening sessions manageable, gives each episode a natural
 cliffhanger, and allows narration to be generated and reviewed in smaller
-batches. Progress should carry the three selected-path histories into the next
-episode even though every local branch reconverges.
+batches. Progress should carry the three-choice history into the next episode
+even though every option returns to the same story sequence.
 
 ## Voice direction
 
@@ -91,7 +91,7 @@ should not come at the expense of continuity or intelligibility.
 ## Choice authoring map
 
 The visible labels should be shorter than the manuscript sentences. The full
-meaning remains in the spoken prompt and branch response.
+meaning remains in the spoken prompt and option outcome.
 
 | # | Choice A label | Choice B label | Distinguishing voice hints |
 | --- | --- | --- | --- |

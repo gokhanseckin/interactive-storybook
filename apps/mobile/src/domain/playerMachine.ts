@@ -23,6 +23,7 @@ export type PlayerState = {
   positionSeconds: number;
   selectedOptionId: string | null;
   selectedOptionIds: string[];
+  selectedOptionsByChoiceId: Record<string, string>;
   guidancePlayed: boolean;
   message: string | null;
 };
@@ -58,6 +59,7 @@ export function createInitialPlayerState(story: Story): PlayerState {
     positionSeconds: 0,
     selectedOptionId: null,
     selectedOptionIds: [],
+    selectedOptionsByChoiceId: {},
     guidancePlayed: false,
     message: null,
   };
@@ -122,6 +124,7 @@ function finishNarration(story: Story, state: PlayerState): PlayerState {
   return {
     ...enterNode(story, node.nextNodeId),
     selectedOptionIds: state.selectedOptionIds,
+    selectedOptionsByChoiceId: state.selectedOptionsByChoiceId,
   };
 }
 
@@ -155,6 +158,7 @@ function finishChoiceTrack(story: Story, state: PlayerState): PlayerState {
     return {
       ...enterNode(story, node.nextNodeId),
       selectedOptionIds: state.selectedOptionIds,
+      selectedOptionsByChoiceId: state.selectedOptionsByChoiceId,
     };
   }
 
@@ -227,6 +231,10 @@ export function reducePlayer(
         positionSeconds: 0,
         selectedOptionId: event.optionId,
         selectedOptionIds: [...state.selectedOptionIds, event.optionId],
+        selectedOptionsByChoiceId: {
+          ...state.selectedOptionsByChoiceId,
+          [choice.id]: event.optionId,
+        },
         message: null,
       };
     }
@@ -246,6 +254,7 @@ export function hasMeaningfulProgress(story: Story, state: PlayerState): boolean
     state.segmentIndex !== 0 ||
     state.positionSeconds >= 1 ||
     state.selectedOptionIds.length > 0 ||
+    Object.keys(state.selectedOptionsByChoiceId).length > 0 ||
     state.mode === 'completed'
   );
 }

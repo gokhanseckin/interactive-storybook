@@ -6,6 +6,7 @@ import {
   buildPlaybackSection,
   findPlaybackSectionTarget,
   getPlaybackSectionElapsed,
+  getSectionNavigation,
 } from './playbackSection';
 import { createInitialPlayerState, reducePlayer } from './playerMachine';
 
@@ -92,5 +93,52 @@ describe('playback section timeline', () => {
     if (!section) throw new Error('Expected the intro playback section.');
 
     expect(getPlaybackSectionElapsed(section, state, 2)).toBeCloseTo(11.648, 3);
+  });
+
+  it('navigates only between narration sections and skips the choice', () => {
+    const initial = createInitialPlayerState(hiddenGardenStory);
+    const navigation = getSectionNavigation(hiddenGardenStory, initial);
+
+    expect(navigation.currentSection).toBe(1);
+    expect(navigation.totalSections).toBe(2);
+    expect(navigation.previous).toBeNull();
+    expect(navigation.next?.nodeId).toBe('road-to-second-choice');
+    expect(navigation.next?.trackKind).toBe('narration');
+  });
+
+  it.each(['choicePrompt', 'choiceResponse'] as const)(
+    'skips both the choice and outcome while %s is active',
+    (trackKind) => {
+      const initial = createInitialPlayerState(hiddenGardenStory);
+      const state = {
+        ...initial,
+        nodeId: 'hidden-path-choice',
+        trackKind,
+        mode: 'playing' as const,
+        selectedOptionId:
+          trackKind === 'choiceResponse' ? 'follow-path-now' : null,
+      };
+      const navigation = getSectionNavigation(hiddenGardenStory, state);
+
+      expect(navigation.previous?.nodeId).toBe('lost-ball-intro');
+      expect(navigation.next?.nodeId).toBe('road-to-second-choice');
+      expect(navigation.previous?.trackKind).toBe('narration');
+      expect(navigation.next?.trackKind).toBe('narration');
+    },
+  );
+
+  it('navigates back from the following shared section without replaying an outcome', () => {
+    const initial = createInitialPlayerState(hiddenGardenStory);
+    const state = {
+      ...initial,
+      nodeId: 'road-to-second-choice',
+      mode: 'paused' as const,
+    };
+    const navigation = getSectionNavigation(hiddenGardenStory, state);
+
+    expect(navigation.currentSection).toBe(2);
+    expect(navigation.previous?.nodeId).toBe('lost-ball-intro');
+    expect(navigation.previous?.selectedOptionId).toBeNull();
+    expect(navigation.next).toBeNull();
   });
 });

@@ -16,7 +16,9 @@ import { resolveChoiceFromTranscripts } from '../domain/choiceResolver';
 import {
   buildPlaybackSection,
   findPlaybackSectionTarget,
+  getSectionNavigation,
   getPlaybackSectionElapsed,
+  type SectionNavigationTarget,
 } from '../domain/playbackSection';
 import {
   createInitialPlayerState,
@@ -74,6 +76,10 @@ export function useStoryPlayer(story: Story) {
   const playbackSectionElapsed = playbackSection
     ? getPlaybackSectionElapsed(playbackSection, state, status.currentTime)
     : 0;
+  const sectionNavigation = useMemo(
+    () => getSectionNavigation(story, state),
+    [state, story],
+  );
 
   const dispatch = useCallback((event: PlayerEvent) => {
     dispatchBase(event);
@@ -308,6 +314,25 @@ export function useStoryPlayer(story: Story) {
     [dispatch, playbackSection, player, state.mode],
   );
 
+  const navigateToSection = useCallback(
+    (target: SectionNavigationTarget) => {
+      const targetSegment = story.nodes[target.nodeId];
+      if (!targetSegment || targetSegment.kind !== 'narration') return;
+
+      const requestId = seekRequestIdRef.current + 1;
+      seekRequestIdRef.current = requestId;
+      pendingSeekRef.current = {
+        requestId,
+        segmentId: targetSegment.segments[0]!.id,
+        positionSeconds: 0,
+        resumeAfterSeek: state.mode === 'playing' || state.mode === 'awaitingChoice',
+      };
+      player.pause();
+      dispatch({ type: 'SEEK', ...target });
+    },
+    [dispatch, player, state.mode, story.nodes],
+  );
+
   const startVoiceChoice = useCallback(async () => {
     if (!choice || state.mode !== 'awaitingChoice') return;
 
@@ -433,11 +458,13 @@ export function useStoryPlayer(story: Story) {
     currentSegment,
     playbackSection,
     playbackSectionElapsed,
+    sectionNavigation,
     isHydrating,
     resumeSnapshot,
     togglePlayback,
     chooseOption,
     seekToPlaybackSection,
+    navigateToSection,
     startVoiceChoice,
     finishVoiceChoice,
     continueSaved,

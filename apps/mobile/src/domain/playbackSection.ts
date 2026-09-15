@@ -17,6 +17,21 @@ export type PlaybackSection = {
   durationSeconds: number;
 };
 
+export type SectionNavigationTarget = {
+  nodeId: string;
+  segmentIndex: number;
+  trackKind: 'narration';
+  selectedOptionId: null;
+  positionSeconds: number;
+};
+
+export type SectionNavigation = {
+  currentSection: number;
+  totalSections: number;
+  previous: SectionNavigationTarget | null;
+  next: SectionNavigationTarget | null;
+};
+
 type DurationResolver = (segmentId: string) => number;
 
 function addSegments(
@@ -90,6 +105,104 @@ function findChoicePredecessor(
   );
 }
 
+type NarrationSection = {
+  startNodeId: string;
+  nodeIds: string[];
+  followingChoiceId: string | null;
+};
+
+function getNarrationSections(story: Story): NarrationSection[] {
+  const sections: NarrationSection[] = [];
+  const visited = new Set<string>();
+  let nodeId: string | null = story.entryNodeId;
+
+  while (nodeId && !visited.has(nodeId)) {
+    const firstNode: StoryNode | undefined = story.nodes[nodeId];
+    if (!firstNode) break;
+
+    if (firstNode.kind === 'choice') {
+      visited.add(firstNode.id);
+      nodeId = firstNode.nextNodeId;
+      continue;
+    }
+
+    const section: NarrationSection = {
+      startNodeId: firstNode.id,
+      nodeIds: [],
+      followingChoiceId: null,
+    };
+    let narrationNode: StoryNode | undefined = firstNode;
+
+    while (narrationNode?.kind === 'narration' && !visited.has(narrationNode.id)) {
+      visited.add(narrationNode.id);
+      section.nodeIds.push(narrationNode.id);
+      const nextNode: StoryNode | undefined = narrationNode.nextNodeId
+        ? story.nodes[narrationNode.nextNodeId]
+        : undefined;
+
+      if (nextNode?.kind === 'narration') {
+        narrationNode = nextNode;
+        continue;
+      }
+
+      if (nextNode?.kind === 'choice') {
+        section.followingChoiceId = nextNode.id;
+        visited.add(nextNode.id);
+        nodeId = nextNode.nextNodeId;
+      } else {
+        nodeId = null;
+      }
+      break;
+    }
+
+    sections.push(section);
+  }
+
+  return sections;
+}
+
+function sectionTarget(section: NarrationSection): SectionNavigationTarget {
+  return {
+    nodeId: section.startNodeId,
+    segmentIndex: 0,
+    trackKind: 'narration',
+    selectedOptionId: null,
+    positionSeconds: 0,
+  };
+}
+
+export function getSectionNavigation(
+  story: Story,
+  state: PlayerState,
+): SectionNavigation {
+  const sections = getNarrationSections(story);
+  const currentNode = story.nodes[state.nodeId];
+  let currentIndex = sections.findIndex(({ nodeIds }) => nodeIds.includes(state.nodeId));
+
+  if (currentNode?.kind === 'choice') {
+    currentIndex = sections.findIndex(
+      ({ followingChoiceId }) => followingChoiceId === currentNode.id,
+    );
+  }
+
+  if (currentIndex < 0) currentIndex = 0;
+
+  const displayedSectionIndex =
+    currentNode?.kind === 'choice' && state.trackKind === 'choiceResponse'
+      ? Math.min(currentIndex + 1, Math.max(0, sections.length - 1))
+      : currentIndex;
+  const previousIndex =
+    currentNode?.kind === 'choice' ? currentIndex : currentIndex - 1;
+  const nextIndex = currentIndex + 1;
+
+  return {
+    currentSection: displayedSectionIndex + 1,
+    totalSections: sections.length,
+    previous: sections[previousIndex] ? sectionTarget(sections[previousIndex]) : null,
+    next: sections[nextIndex] ? sectionTarget(sections[nextIndex]) : null,
+  };
+}
+
 export function buildPlaybackSection(
   story: Story,
   state: PlayerState,
@@ -136,7 +249,9 @@ export function buildPlaybackSection(
   } else {
     const startNodeId = findNarrationSectionStart(story, node.id);
     const choicePredecessor = findChoicePredecessor(story, startNodeId);
-    const selectedOptionId = state.selectedOptionIds.at(-1) ?? null;
+    const selectedOptionId = choicePredecessor
+      ? state.selectedOptionsByChoiceId[choicePredecessor.id] ?? null
+      : null;
     const selectedOption = choicePredecessor?.options.find(
       ({ id }) => id === selectedOptionId,
     );
@@ -155,7 +270,7 @@ export function buildPlaybackSection(
   }
 
   return {
-    label: `${state.selectedOptionIds.length + 1}. seçime kadar`,
+    label: `${getSectionNavigation(story, state).currentSection}. seçime kadar`,
     items,
     durationSeconds: items.reduce((total, item) => total + item.durationSeconds, 0),
   };

@@ -128,6 +128,30 @@ function StoryTimeline({
   );
 }
 
+function SectionSkipIcon({ direction }: { direction: 'previous' | 'next' }) {
+  const triangle = (
+    <View
+      style={
+        direction === 'previous'
+          ? styles.sectionSkipTrianglePrevious
+          : styles.sectionSkipTriangleNext
+      }
+    />
+  );
+  const bar = <View style={styles.sectionSkipBar} />;
+
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={styles.sectionSkipGlyph}
+    >
+      {direction === 'previous' ? bar : triangle}
+      {direction === 'previous' ? triangle : bar}
+    </View>
+  );
+}
+
 export function StoryPlayerScreen() {
   const player = useStoryPlayer(hiddenGardenStory);
   const {
@@ -137,9 +161,11 @@ export function StoryPlayerScreen() {
     resumeSnapshot,
     playbackSection,
     playbackSectionElapsed,
+    sectionNavigation,
     togglePlayback,
     chooseOption,
     seekToPlaybackSection,
+    navigateToSection,
     startVoiceChoice,
     finishVoiceChoice,
     continueSaved,
@@ -155,6 +181,8 @@ export function StoryPlayerScreen() {
   );
   const canTapChoice =
     state.mode === 'awaitingChoice' || state.trackKind === 'choiceGuidance';
+  const sectionNavigationLocked =
+    state.mode === 'recordingChoice' || state.mode === 'resolvingChoice';
 
   const listeningLabel = useMemo(() => {
     switch (state.mode) {
@@ -314,24 +342,64 @@ export function StoryPlayerScreen() {
             </Text>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={mainActionLabel}
-            disabled={state.mode === 'resolvingChoice'}
-            onPress={handleMainAction}
-            style={({ pressed }) => [
-              styles.mainButton,
-              pressed && styles.mainButtonPressed,
-              state.mode === 'recordingChoice' && styles.recordingButton,
-              state.mode === 'resolvingChoice' && styles.mainButtonDisabled,
-            ]}
-          >
-            {state.mode === 'resolvingChoice' ? (
-              <ActivityIndicator color={palette.midnight} size="large" />
-            ) : (
-              <Text style={styles.mainIcon}>{mainIcon}</Text>
-            )}
-          </Pressable>
+          <View style={styles.transportRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Önceki bölüm"
+              accessibilityHint="Bir önceki hikâye bölümünün başına gider."
+              disabled={sectionNavigationLocked || !sectionNavigation.previous}
+              onPress={() => {
+                if (sectionNavigation.previous) {
+                  navigateToSection(sectionNavigation.previous);
+                }
+              }}
+              style={({ pressed }) => [
+                styles.sectionSkipButton,
+                pressed && styles.sectionSkipButtonPressed,
+                (sectionNavigationLocked || !sectionNavigation.previous) &&
+                  styles.sectionSkipButtonDisabled,
+              ]}
+            >
+              <SectionSkipIcon direction="previous" />
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={mainActionLabel}
+              disabled={state.mode === 'resolvingChoice'}
+              onPress={handleMainAction}
+              style={({ pressed }) => [
+                styles.mainButton,
+                pressed && styles.mainButtonPressed,
+                state.mode === 'recordingChoice' && styles.recordingButton,
+                state.mode === 'resolvingChoice' && styles.mainButtonDisabled,
+              ]}
+            >
+              {state.mode === 'resolvingChoice' ? (
+                <ActivityIndicator color={palette.midnight} size="large" />
+              ) : (
+                <Text style={styles.mainIcon}>{mainIcon}</Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Sonraki bölüm"
+              accessibilityHint="Bir sonraki hikâye bölümünün başına gider."
+              disabled={sectionNavigationLocked || !sectionNavigation.next}
+              onPress={() => {
+                if (sectionNavigation.next) navigateToSection(sectionNavigation.next);
+              }}
+              style={({ pressed }) => [
+                styles.sectionSkipButton,
+                pressed && styles.sectionSkipButtonPressed,
+                (sectionNavigationLocked || !sectionNavigation.next) &&
+                  styles.sectionSkipButtonDisabled,
+              ]}
+            >
+              <SectionSkipIcon direction="next" />
+            </Pressable>
+          </View>
           <Text style={styles.mainActionLabel}>{mainActionLabel}</Text>
         </View>
       </View>
@@ -494,6 +562,63 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     marginBottom: 12,
+  },
+  transportRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+  },
+  sectionSkipButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.midnightRaised,
+    borderWidth: 1,
+    borderColor: palette.inkBlue,
+  },
+  sectionSkipButtonPressed: {
+    backgroundColor: palette.inkBlue,
+    borderColor: palette.teal,
+    transform: [{ scale: 0.94 }],
+  },
+  sectionSkipButtonDisabled: { opacity: 0.25 },
+  sectionSkipGlyph: {
+    width: 27,
+    height: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  sectionSkipBar: {
+    width: 4,
+    height: 21,
+    borderRadius: 2,
+    backgroundColor: palette.moon,
+  },
+  sectionSkipTrianglePrevious: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 10,
+    borderBottomWidth: 10,
+    borderRightWidth: 16,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: palette.moon,
+  },
+  sectionSkipTriangleNext: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 10,
+    borderBottomWidth: 10,
+    borderLeftWidth: 16,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: palette.moon,
   },
   mainButton: {
     width: 94,
