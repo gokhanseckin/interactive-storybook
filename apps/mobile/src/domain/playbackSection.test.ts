@@ -22,13 +22,13 @@ describe('playback section timeline', () => {
           ],
     );
 
-    expect(segments).toHaveLength(86);
+    expect(segments).toHaveLength(6);
     expect(
       segments.filter(({ id }) => getAudioDurationSeconds(id) <= 0),
     ).toEqual([]);
   });
 
-  it('presents all intro clips as one 3:41 timeline', () => {
+  it('presents the approved continuous intro as one 2:50 timeline', () => {
     const state = createInitialPlayerState(hiddenGardenStory);
     const section = buildPlaybackSection(
       hiddenGardenStory,
@@ -37,8 +37,8 @@ describe('playback section timeline', () => {
     );
 
     expect(section?.label).toBe('1. seçime kadar');
-    expect(section?.items).toHaveLength(43);
-    expect(section?.durationSeconds).toBeCloseTo(221.16, 3);
+    expect(section?.items).toHaveLength(1);
+    expect(section?.durationSeconds).toBeCloseTo(170.370612, 3);
   });
 
   it('maps a section time to the matching clip and local offset', () => {
@@ -50,9 +50,10 @@ describe('playback section timeline', () => {
     );
     if (!section) throw new Error('Expected the intro playback section.');
 
-    const target = findPlaybackSectionTarget(section, 210);
+    const target = findPlaybackSectionTarget(section, 120);
 
-    expect(target?.item.segment.id).not.toBe('intro-01');
+    expect(target?.item.segment.id).toBe('01-section-one');
+    expect(target?.positionSeconds).toBe(120);
     expect(target?.positionSeconds).toBeGreaterThanOrEqual(0);
     expect(target?.positionSeconds).toBeLessThanOrEqual(
       target?.item.durationSeconds ?? 0,
@@ -78,13 +79,13 @@ describe('playback section timeline', () => {
     );
 
     expect(section?.label).toBe('2. seçime kadar');
-    expect(section?.items[0]?.segment.id).toBe('choice-01-a-01');
-    expect(section?.items.at(-1)?.segment.id).toBe('shared-26');
+    expect(section?.items[0]?.segment.id).toBe('03-option-a');
+    expect(section?.items.at(-1)?.segment.id).toBe('05-section-two');
   });
 
   it('reports the aggregate elapsed time for the active clip', () => {
     const initial = createInitialPlayerState(hiddenGardenStory);
-    const state = { ...initial, segmentIndex: 1, positionSeconds: 2 };
+    const state = { ...initial, segmentIndex: 0, positionSeconds: 2 };
     const section = buildPlaybackSection(
       hiddenGardenStory,
       state,
@@ -92,7 +93,7 @@ describe('playback section timeline', () => {
     );
     if (!section) throw new Error('Expected the intro playback section.');
 
-    expect(getPlaybackSectionElapsed(section, state, 2)).toBeCloseTo(11.648, 3);
+    expect(getPlaybackSectionElapsed(section, state, 2)).toBeCloseTo(2, 3);
   });
 
   it('navigates only between narration sections and skips the choice', () => {

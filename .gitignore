@@ -10,3 +10,6 @@ dist/
 
 # Generated narration is kept outside Git and supplied to app builds separately.
 /apps/mobile/assets/audio/*/*/*.mp3
+/content/calarin-ardindaki-gizli-bahce/audiobook-preview/*.mp3
+/content/calarin-ardindaki-gizli-bahce/audiobook-preview-common-only/*.mp3
+/content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/*.mp3

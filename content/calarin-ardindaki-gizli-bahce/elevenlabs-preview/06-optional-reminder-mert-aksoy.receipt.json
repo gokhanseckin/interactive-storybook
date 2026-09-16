@@ -1,0 +1,16 @@
+{
+  "voiceId": "BwhlzGpUiZ9uHtfvCl1H",
+  "voiceLabel": "Mert Aksoy (user-selected)",
+  "model": "eleven_v3",
+  "voiceSettings": {
+    "stability": 0.5
+  },
+  "outputFormat": "mp3_44100_128",
+  "characters": 74,
+  "generatedAt": "2026-09-16T09:18:08.396Z",
+  "requestId": "4n254yK3Lu52lQmSFJYZ",
+  "characterCost": "18",
+  "requestHash": "8c5d4a4d69459861ebcd658e7f5a2ec317a0ab2455cf619f7cef95ca9bb465d9",
+  "audioHash": "0c3b217a9820521501a183e7e58df10f94fd84f0136f0f0dbe315a12bd8a81a5",
+  "bytes": 71515
+}

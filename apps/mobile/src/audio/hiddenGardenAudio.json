@@ -1,0 +1,130 @@
+{
+  "01-section-one": {
+    "durationSeconds": 170.370612,
+    "sha256": "e8264b42a8449a3ea2345e424803846470bdf9e1b40e32ad8535766473a4c5ed",
+    "sourceSegmentIds": [
+      "intro-01",
+      "intro-02",
+      "intro-03",
+      "intro-04",
+      "intro-05",
+      "intro-06",
+      "intro-07",
+      "intro-08",
+      "intro-09",
+      "intro-10",
+      "intro-11",
+      "intro-12",
+      "intro-12a",
+      "intro-13",
+      "intro-14",
+      "intro-15",
+      "intro-16",
+      "intro-17",
+      "intro-18",
+      "intro-19",
+      "intro-20",
+      "intro-21",
+      "intro-22",
+      "intro-23",
+      "intro-24",
+      "intro-25",
+      "intro-26",
+      "intro-27",
+      "intro-28",
+      "intro-29",
+      "intro-30",
+      "intro-31",
+      "intro-32",
+      "intro-33",
+      "intro-34",
+      "intro-35",
+      "intro-36",
+      "intro-37",
+      "intro-38",
+      "intro-39",
+      "intro-40",
+      "intro-41",
+      "intro-42"
+    ],
+    "requestHash": "73defbd13ef96def90342ec9a7524586711affb07270a5b4a14dfec0b09a4d54"
+  },
+  "02-decision-question": {
+    "durationSeconds": 7.706122,
+    "sha256": "ee1e5a471352ff3d2333707dea65d7e6886ef29fb7e4de96dec3bce0c71bfd4e",
+    "sourceSegmentIds": [
+      "choice-01-prompt"
+    ],
+    "requestHash": "4f2c7c86ff28a47e4ee139f348908e758c364a0ae4c339f83e4db9669261c677"
+  },
+  "03-option-a": {
+    "durationSeconds": 37.877551,
+    "sha256": "c52bae6f255a2f5e53c6afa03e889854df4ed3fecb964ce05a71adae531583e5",
+    "sourceSegmentIds": [
+      "choice-01-a-01",
+      "choice-01-a-02",
+      "choice-01-a-03",
+      "choice-01-a-04",
+      "choice-01-a-05",
+      "choice-01-a-06",
+      "choice-01-a-07"
+    ],
+    "requestHash": "dabfabbee62f2eb970c96121136e13a6fe1d4ad0780b2e740fe316a7c9d2e189"
+  },
+  "04-option-b": {
+    "durationSeconds": 34.037551,
+    "sha256": "4c184fbead0bd4997f525ccb8c2f086e1df07fd97acefc8003a165e4f764d3b2",
+    "sourceSegmentIds": [
+      "choice-01-b-01",
+      "choice-01-b-02",
+      "choice-01-b-03",
+      "choice-01-b-04",
+      "choice-01-b-05",
+      "choice-01-b-06",
+      "choice-01-b-07",
+      "choice-01-b-08"
+    ],
+    "requestHash": "2bdca425b5b4ac3d304794acab465c122ecdbebdbdf4fb80edcf5050b3daac17"
+  },
+  "05-section-two": {
+    "durationSeconds": 89.965714,
+    "sha256": "b5b30eb353321191ec00896d96a68cfde0b848b08800f120e7dcf4923eedf268",
+    "sourceSegmentIds": [
+      "shared-01",
+      "shared-02",
+      "shared-03",
+      "shared-04",
+      "shared-05",
+      "shared-06",
+      "shared-07",
+      "shared-08",
+      "shared-09",
+      "shared-10",
+      "shared-11",
+      "shared-12",
+      "shared-13",
+      "shared-14",
+      "shared-15",
+      "shared-16",
+      "shared-17",
+      "shared-18",
+      "shared-19",
+      "shared-20",
+      "shared-21",
+      "shared-22",
+      "shared-23",
+      "shared-24",
+      "shared-25",
+      "shared-26"
+    ],
+    "requestHash": "50954b3e1a1a2718c4ae00e136a32880248a81a4fbce4bffce7576c342c6b326"
+  },
+  "06-optional-reminder": {
+    "durationSeconds": 4.440816,
+    "sha256": "0c3b217a9820521501a183e7e58df10f94fd84f0136f0f0dbe315a12bd8a81a5",
+    "sourceSegmentIds": [
+      "choice-01-guidance"
+    ],
+    "requestHash": "96631f3158332e9209af30fa59e8a58679ece2c67f3efe95a5ff8a758182ea09"
+  }
+}

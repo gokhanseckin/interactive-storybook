@@ -1,0 +1,35 @@
+{
+  "validation": "All six files recognized by afinfo as mono 24 kHz MP3. Content and performance listening review pending; no transcription performed.",
+  "tracks": [
+    {
+      "id": "01-section-one",
+      "durationSeconds": 204.864,
+      "bytes": 3277824
+    },
+    {
+      "id": "02-decision-question",
+      "durationSeconds": 9.12,
+      "bytes": 145920
+    },
+    {
+      "id": "03-option-a",
+      "durationSeconds": 36.6,
+      "bytes": 585600
+    },
+    {
+      "id": "04-option-b",
+      "durationSeconds": 33.648,
+      "bytes": 538368
+    },
+    {
+      "id": "05-section-two",
+      "durationSeconds": 102.12,
+      "bytes": 1633920
+    },
+    {
+      "id": "06-optional-reminder",
+      "durationSeconds": 5.712,
+      "bytes": 91392
+    }
+  ]
+}

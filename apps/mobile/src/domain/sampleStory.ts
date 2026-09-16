@@ -7,7 +7,7 @@ export const sampleStory = StorySchema.parse({
   language: 'tr-TR',
   ageBand: '6-8',
   voice: {
-    providerVoice: 'marin',
+    providerVoice: 'BwhlzGpUiZ9uHtfvCl1H',
     globalDirection:
       'Altı-sekiz yaş grubu için sıcak, anlaşılır ve doğal bir Türkçe hikâye anlatımı kullan.',
     speakerProfiles: {

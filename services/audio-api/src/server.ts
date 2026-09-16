@@ -1,58 +1,10 @@
-import Fastify from 'fastify';
-import OpenAI from 'openai';
-import { z } from 'zod';
+import { createApp } from './app.js';
 
-import { buildAudioInstructions } from './prompts.js';
-
-const TtsRequestSchema = z.object({
-  text: z.string().min(1).max(4096),
-  speaker: z.string().min(1).max(80),
-  globalDirection: z.string().min(1).max(1_000),
-  speakerProfile: z.string().min(1).max(500),
-  direction: z.string().min(1).max(500).optional(),
-  voice: z.string().min(1).default('marin'),
+const app = createApp({
+  apiKey: process.env.ELEVENLABS_API_KEY,
+  voice: process.env.ELEVENLABS_VOICE_ID,
 });
-
-const apiKey = process.env.OPENAI_API_KEY;
-const openai = apiKey ? new OpenAI({ apiKey }) : null;
-const app = Fastify({ logger: true });
-
-app.get('/health', async () => ({
-  ok: true,
-  openAiConfigured: Boolean(openai),
-}));
-
-app.post('/v1/tts', async (request, reply) => {
-  if (!openai) {
-    return reply.code(503).send({ code: 'OPENAI_NOT_CONFIGURED' });
-  }
-
-  const parsed = TtsRequestSchema.safeParse(request.body);
-  if (!parsed.success) {
-    return reply.code(400).send({ code: 'INVALID_REQUEST' });
-  }
-
-  const speech = await openai.audio.speech.create({
-    model: 'gpt-4o-mini-tts',
-    voice: parsed.data.voice,
-    input: parsed.data.text,
-    instructions: buildAudioInstructions({
-      globalDirection: parsed.data.globalDirection,
-      speaker: parsed.data.speaker,
-      speakerProfile: parsed.data.speakerProfile,
-      direction: parsed.data.direction,
-    }),
-    response_format: 'mp3',
-  });
-
-  const audio = Buffer.from(await speech.arrayBuffer());
-  return reply
-    .header('Cache-Control', 'no-store')
-    .header('Content-Type', 'audio/mpeg')
-    .send(audio);
+await app.listen({
+  port: Number(process.env.PORT ?? 8787),
+  host: process.env.HOST ?? '127.0.0.1',
 });
-
-const port = Number(process.env.PORT ?? 8787);
-const host = process.env.HOST ?? '127.0.0.1';
-
-await app.listen({ port, host });

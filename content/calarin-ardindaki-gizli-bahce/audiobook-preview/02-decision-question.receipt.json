@@ -1,0 +1,8 @@
+{
+  "requestHash": "dee31cf01b0f6414b6b5e57bf91fa8a651eb7fd0298cb657dbf7a2e71992e3ba",
+  "audioHash": "ee9fecbd675c4c30de62bd4f6c72d0fa316143d8b124735e4a362a5eea1159f3",
+  "model": "gpt-4o-mini-tts",
+  "voice": "marin",
+  "generatedAt": "2026-09-15T18:26:23.862Z",
+  "bytes": 145920
+}

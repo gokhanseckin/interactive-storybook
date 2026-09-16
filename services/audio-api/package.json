@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx --watch src/server.ts",
+    "start": "node --env-file-if-exists=.env --import tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:live-speech": "tsx src/liveSpeechCheck.ts",
-    "generate:hidden-garden-preview": "tsx src/generateHiddenGardenSlice.ts --preview",
-    "generate:hidden-garden-slice": "tsx src/generateHiddenGardenSlice.ts"
+    "test:live-speech": "node --env-file-if-exists=.env --import tsx src/liveSpeechCheck.ts",
+    "generate:hidden-garden-preview": "node --env-file-if-exists=.env --import tsx src/generateHiddenGardenSlice.ts --preview",
+    "generate:hidden-garden-slice": "node --env-file-if-exists=.env --import tsx src/generateHiddenGardenSlice.ts"
   },
   "dependencies": {
     "fastify": "^5.12.4",
@@ -22,5 +22,8 @@
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   }
 }

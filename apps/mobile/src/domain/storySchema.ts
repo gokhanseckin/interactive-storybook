@@ -3,12 +3,20 @@ import { z } from 'zod';
 export const AudioSegmentSchema = z.object({
   id: z.string().min(1),
   speaker: z.string().min(1).max(80),
-  text: z.string().min(1).max(4096),
+  text: z.string().min(1).max(5000),
+  ttsText: z.string().min(1).max(5000).optional(),
   direction: z.string().min(1).max(500).optional(),
   audioKey: z.string().min(1).optional(),
+}).superRefine((segment, context) => {
+  if (segment.ttsText && segment.ttsText.replace(/\[[^\]\r\n]+\] ?/g, '') !== segment.text) {
+    context.addIssue({ code: 'custom', path: ['ttsText'], message: 'Inline audio tags must preserve the spoken text.' });
+  }
 });
 
 const VoiceConfigSchema = z.object({
+  provider: z.literal('elevenlabs').default('elevenlabs'),
+  model: z.literal('eleven_v3').default('eleven_v3'),
+  stability: z.union([z.literal(0), z.literal(0.5), z.literal(1)]).default(0.5),
   providerVoice: z.string().min(1),
   globalDirection: z.string().min(1).max(1_000),
   speakerProfiles: z.record(z.string(), z.string().min(1).max(500)),

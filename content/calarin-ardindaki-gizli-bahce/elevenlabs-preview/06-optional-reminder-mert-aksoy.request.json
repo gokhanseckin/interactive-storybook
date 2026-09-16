@@ -1,0 +1,8 @@
+{
+  "model_id": "eleven_v3",
+  "language_code": "tr",
+  "text": "İki seçenekten birini söyleyebilir veya ekrandaki seçeneğe dokunabilirsin.",
+  "voice_settings": {
+    "stability": 0.5
+  }
+}
