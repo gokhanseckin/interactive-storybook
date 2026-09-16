@@ -2,6 +2,17 @@
 
 Status: First playable slice approved and implemented
 
+## Current narration decision — 16 September 2026
+
+ElevenLabs `eleven_v3`, voice `BwhlzGpUiZ9uHtfvCl1H` (Mert Aksoy), Natural
+stability 0.5 is now the production TTS choice. The app uses six continuous
+tracks approved in the listening tests. `speaker-segmented-edition.json`
+preserves the original detailed edition for editorial work; the active mobile
+story groups its 86 segments into the six recordings. Inline directions live
+in `ttsText`, while `text` remains clean. The OpenAI voice and per-speaker
+recording recommendations below describe the earlier experiment and are
+superseded by this decision.
+
 ## First playable slice
 
 The initial implementation intentionally stops when Bay Makara says “Birini

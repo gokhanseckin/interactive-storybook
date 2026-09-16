@@ -1,0 +1,42 @@
+{
+  "encoding": "o200k_base",
+  "note": "Conservative local estimate including both text and directions; provider accounting may differ.",
+  "tracks": [
+    {
+      "id": "01-section-one",
+      "inputTokens": 799,
+      "instructionTokens": 406,
+      "combinedTokens": 1205
+    },
+    {
+      "id": "02-decision-question",
+      "inputTokens": 36,
+      "instructionTokens": 137,
+      "combinedTokens": 173
+    },
+    {
+      "id": "03-option-a",
+      "inputTokens": 158,
+      "instructionTokens": 226,
+      "combinedTokens": 384
+    },
+    {
+      "id": "04-option-b",
+      "inputTokens": 144,
+      "instructionTokens": 233,
+      "combinedTokens": 377
+    },
+    {
+      "id": "05-section-two",
+      "inputTokens": 409,
+      "instructionTokens": 310,
+      "combinedTokens": 719
+    },
+    {
+      "id": "06-optional-reminder",
+      "inputTokens": 22,
+      "instructionTokens": 126,
+      "combinedTokens": 148
+    }
+  ]
+}

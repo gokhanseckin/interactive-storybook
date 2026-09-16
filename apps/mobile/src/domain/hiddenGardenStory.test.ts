@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveChoiceFromTranscripts } from './choiceResolver';
+import audioMetadata from '../audio/hiddenGardenAudio.json';
+import sourceEdition from '../../../../content/calarin-ardindaki-gizli-bahce/speaker-segmented-edition.json';
 import { hiddenGardenStory } from './hiddenGardenStory';
 import { createInitialPlayerState, reducePlayer } from './playerMachine';
 
@@ -13,6 +15,27 @@ function finishNode(nodeId: string, state: ReturnType<typeof createInitialPlayer
 }
 
 describe('hidden garden vertical slice', () => {
+  it('uses the approved six-track ElevenLabs edition with exact spoken wording', () => {
+    expect(hiddenGardenStory.id).not.toBe(sourceEdition.id);
+    expect(hiddenGardenStory.voice.provider).toBe('elevenlabs');
+    expect(hiddenGardenStory.voice.providerVoice).toBe('BwhlzGpUiZ9uHtfvCl1H');
+    const segments = Object.values(hiddenGardenStory.nodes).flatMap(node => node.kind === 'narration'
+      ? node.segments : [...node.promptSegments, node.guidanceSegment, ...node.options.flatMap(option => option.responseSegments)]);
+    const original = Object.values(sourceEdition.nodes).flatMap(node => node.kind === 'narration'
+      ? ('segments' in node ? node.segments : []) : ('options' in node ? [...node.promptSegments, node.guidanceSegment, ...node.options.flatMap(option => option.responseSegments)] : []));
+    const originalById = new Map(original.map(segment => [segment.id, segment.text]));
+    const normalized = (text: string) => text.replace(/[“”]/g, '').replace(/\s+/g, ' ').trim();
+    expect(segments).toHaveLength(6);
+    const covered = Object.values(audioMetadata).flatMap(track => track.sourceSegmentIds);
+    expect(new Set(covered).size).toBe(original.length);
+    expect(covered.length).toBe(original.length);
+    for (const segment of segments) {
+      expect(segment.ttsText?.replace(/\[[^\]]+\] ?/g, '')).toBe(segment.text);
+      const metadata = audioMetadata[segment.id as keyof typeof audioMetadata];
+      expect(normalized(segment.text)).toBe(normalized(metadata.sourceSegmentIds.map(id => originalById.get(id)).join(' ')));
+      expect(segment.audioKey).toBe(`${hiddenGardenStory.id}/${hiddenGardenStory.language}/${segment.id}`);
+    }
+  });
   it('contains one intro, one two-way choice, and one shared passage', () => {
     expect(hiddenGardenStory.language).toBe('tr-TR');
     expect(hiddenGardenStory.ageBand).toBe('8-10');
@@ -30,7 +53,7 @@ describe('hidden garden vertical slice', () => {
     expect(ending?.kind).toBe('narration');
     if (ending?.kind !== 'narration') throw new Error('Expected the shared passage.');
     expect(ending.nextNodeId).toBeNull();
-    expect(ending.segments.at(-1)?.text).toBe('Birini seçin.');
+    expect(ending.segments.at(-1)?.text).toMatch(/“Birini seçin\.”$/);
 
     const allSegments = Object.values(hiddenGardenStory.nodes).flatMap((node) =>
       node.kind === 'narration'

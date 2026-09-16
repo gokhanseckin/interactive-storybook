@@ -3,9 +3,15 @@
 This repository contains the first runnable slice of the interactive audio storybook:
 
 - `apps/mobile`: Expo SDK 57 / React Native listener app
-- `services/audio-api`: server-only OpenAI speech boundary
+- `services/audio-api`: server-only ElevenLabs speech boundary
 
-The included sample is a shortened section of **Rüzgârın Sakladığı Uçurtma**. Its bundled WAV files were generated with a local macOS Turkish voice strictly as development placeholders. Production editions must be generated through the server endpoint with `gpt-4o-mini-tts`.
+The active story is **Çalıların Ardındaki Gizli Bahçe**, narrated by the selected
+ElevenLabs voice `BwhlzGpUiZ9uHtfvCl1H` (Mert Aksoy), using `eleven_v3` and Natural
+stability (`0.5`). Six approved continuous MP3 tracks cover section 1, its choice,
+both outcomes, section 2, and an optional answer reminder. The slice ends with
+“Birini seçin.” before the second choice question.
+
+The older kite story remains a test fixture with local macOS placeholder audio.
 
 ## What the spike proves
 
@@ -16,7 +22,7 @@ The included sample is a shortened section of **Rüzgârın Sakladığı Uçurtm
 - On-device speech recognition that is forbidden from falling back to the network
 - Local choice resolution from multiple transcript alternatives and localized hints
 - Local progress persistence and continue/restart recovery
-- A validated JSON story shape with `speaker`, `text`, and optional `direction`
+- A validated JSON story shape with clean `text`, reviewed inline `ttsText`, and editorial speaker/direction metadata
 
 ## Run the mobile app
 
@@ -57,14 +63,13 @@ available. Android 13+ can offer to download a missing offline language pack.
 
 ## Enable narration TTS locally
 
-Do not place the OpenAI key in the Expo app. Configure it only in the server process:
+Do not place the ElevenLabs key in the Expo app. Configure it only in the server process:
 
 ```bash
 cd services/audio-api
-cp .env.example .env
-# Add OPENAI_API_KEY to .env locally.
+test -f .env || cp .env.example .env
+# Add ELEVENLABS_API_KEY to .env locally.
 npm install
-set -a && source .env && set +a
 npm run dev
 ```
 
@@ -78,9 +83,8 @@ garden audio locally, load the server-only key and run:
 
 ```bash
 cd services/audio-api
-set -a && source .env && set +a
-npm run generate:hidden-garden-preview # representative 10-clip review set
-npm run generate:hidden-garden-slice   # all missing clips in the playable slice
+npm run generate:hidden-garden-preview # section 1 only
+npm run generate:hidden-garden-slice   # verify existing tracks; generate missing tracks
 ```
 
 The resulting MP3 files live under `apps/mobile/assets/audio/<story>/<locale>/`
@@ -99,14 +103,14 @@ cd ../../services/audio-api
 npm run typecheck
 npm test
 
-# Requires OPENAI_API_KEY and uses synthetic speech, never a child's recording.
+# Requires ELEVENLABS_API_KEY and uses synthetic speech, never a child's recording.
 npm run test:live-speech
 ```
 
 Real-device acceptance checks:
 
 1. Pause and resume in the middle of every clip.
-2. Complete the story once through each option and confirm both outcomes return to the same green-door scene.
+2. Complete the story once through each option and confirm both outcomes return to the same Bay Makara passage.
 3. Wait eight seconds at the choice; guidance plays once and the app keeps waiting.
 4. Background or terminate the app mid-clip; relaunch and choose continue or restart.
 5. Deny microphone permission; tap selection remains usable.
@@ -124,13 +128,38 @@ checks are recorded in
 
 ```json
 {
-  "speaker": "narrator",
-  "text": "Kapının ardında hafif bir ışık görünüyordu.",
-  "globalDirection": "Sekiz-on yaş grubu için sıcak bir hikâye anlatımı kullan.",
-  "speakerProfile": "Sakin, anlaşılır ve merak uyandıran bir anlatıcı.",
-  "direction": "Hafif bir merak duygusu oluştur.",
-  "voice": "marin"
+  "text": "Güneş. Ay. Yıldız.",
+  "ttsText": "Güneş. [short pause] Ay. [short pause] Yıldız.",
+  "language": "tr-TR",
+  "voice": "BwhlzGpUiZ9uHtfvCl1H",
+  "stability": 0.5
 }
 ```
 
-The server combines each segment with the base instructions in `services/audio-api/src/prompts.ts`. Character-specific delivery is applied only when the segment belongs to that speaking character.
+`ttsText` is optional. Removing its audio tags must reproduce `text` exactly.
+Natural-language editorial directions and speaker profiles are not sent to the
+provider. Only reviewed inline tags affect delivery. The endpoint uses
+`eleven_v3`, MP3 44.1 kHz / 128 kb/s, and no automatic generation retries.
+`ELEVENLABS_VOICE_ID` configures the endpoint's default voice; the story's recorded
+voice ID controls batch generation to preserve the approved cast.
+
+## ElevenLabs audio edition
+
+- `apps/mobile/src/domain/hiddenGardenStory.json`: active six-track edition, including clean and tagged text.
+- `apps/mobile/src/audio/hiddenGardenAudio.json`: measured durations, audio SHA-256 hashes, and original segment IDs.
+- `content/calarin-ardindaki-gizli-bahce/speaker-segmented-edition.json`: preserved detailed manuscript for editing.
+- `content/calarin-ardindaki-gizli-bahce/elevenlabs-preview`: listening-test requests and receipts.
+
+Existing MP3s are reused only when their checksums and request fingerprints match. Missing assets can be
+regenerated with the batch command; this uses credits and updates measured
+durations and checksums. Generation requires `afinfo` on macOS or `ffprobe` on
+Linux. Restore approved assets from private artifact storage when possible.
+Revised recordings should use a new edition rather than overwrite approved files.
+
+The edition has a new story ID, so saved positions from the former 86-clip
+recording do not resume at incorrect positions. Both choice outcomes rejoin
+section 2, section navigation remains available, and child voice choices still
+run entirely on-device. The mobile bundle contains no provider credentials.
+
+The OpenAI preview generator and prompt helpers are retained only as historical
+comparison tools; active API, batch generation, and live TTS checks use ElevenLabs.

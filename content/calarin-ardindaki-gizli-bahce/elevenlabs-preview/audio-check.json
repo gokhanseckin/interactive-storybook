@@ -1,0 +1,38 @@
+[
+  {
+    "file": "01-section-one-mert-aksoy.mp3",
+    "seconds": 170.370612,
+    "bytes": 2726391,
+    "afinfo": "File:           content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/01-section-one-mert-aksoy.mp3\nFile type ID:   MPG3\nNum Tracks:     1\n----\nData format:     1 ch,  44100 Hz, .mp3 (0x00000000) 0 bits/channel, 0 bytes/packet, 1152 frames/packet, 0 bytes/frame\n                no channel layout.\nestimated duration: 170.370612 sec\naudio bytes: 2725929\naudio packets: 6522\nbit rate: 127999 bits per second\npacket size upper bound: 1052\nmaximum packet size: 418\naudio data file offset: 462\noptimized\n----\n"
+  },
+  {
+    "file": "02-decision-question-mert-aksoy.mp3",
+    "seconds": 7.706122,
+    "bytes": 123759,
+    "afinfo": "File:           content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/02-decision-question-mert-aksoy.mp3\nFile type ID:   MPG3\nNum Tracks:     1\n----\nData format:     1 ch,  44100 Hz, .mp3 (0x00000000) 0 bits/channel, 0 bytes/packet, 1152 frames/packet, 0 bytes/frame\n                no channel layout.\nestimated duration: 7.706122 sec\naudio bytes: 123297\naudio packets: 295\nbit rate: 127999 bits per second\npacket size upper bound: 1052\nmaximum packet size: 418\naudio data file offset: 462\noptimized\n----\n"
+  },
+  {
+    "file": "03-option-a-mert-aksoy.mp3",
+    "seconds": 37.877551,
+    "bytes": 606502,
+    "afinfo": "File:           content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/03-option-a-mert-aksoy.mp3\nFile type ID:   MPG3\nNum Tracks:     1\n----\nData format:     1 ch,  44100 Hz, .mp3 (0x00000000) 0 bits/channel, 0 bytes/packet, 1152 frames/packet, 0 bytes/frame\n                no channel layout.\nestimated duration: 37.877551 sec\naudio bytes: 606040\naudio packets: 1450\nbit rate: 127999 bits per second\npacket size upper bound: 1052\nmaximum packet size: 418\naudio data file offset: 462\noptimized\n----\n"
+  },
+  {
+    "file": "04-option-b-mert-aksoy.mp3",
+    "seconds": 34.037551,
+    "bytes": 545062,
+    "afinfo": "File:           content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/04-option-b-mert-aksoy.mp3\nFile type ID:   MPG3\nNum Tracks:     1\n----\nData format:     1 ch,  44100 Hz, .mp3 (0x00000000) 0 bits/channel, 0 bytes/packet, 1152 frames/packet, 0 bytes/frame\n                no channel layout.\nestimated duration: 34.037551 sec\naudio bytes: 544600\naudio packets: 1303\nbit rate: 127999 bits per second\npacket size upper bound: 1052\nmaximum packet size: 418\naudio data file offset: 462\noptimized\n----\n"
+  },
+  {
+    "file": "05-section-two-mert-aksoy.mp3",
+    "seconds": 89.965714,
+    "bytes": 1439913,
+    "afinfo": "File:           content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/05-section-two-mert-aksoy.mp3\nFile type ID:   MPG3\nNum Tracks:     1\n----\nData format:     1 ch,  44100 Hz, .mp3 (0x00000000) 0 bits/channel, 0 bytes/packet, 1152 frames/packet, 0 bytes/frame\n                no channel layout.\nestimated duration: 89.965714 sec\naudio bytes: 1439451\naudio packets: 3444\nbit rate: 127999 bits per second\npacket size upper bound: 1052\nmaximum packet size: 418\naudio data file offset: 462\noptimized\n----\n"
+  },
+  {
+    "file": "06-optional-reminder-mert-aksoy.mp3",
+    "seconds": 4.440816,
+    "bytes": 71515,
+    "afinfo": "File:           content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/06-optional-reminder-mert-aksoy.mp3\nFile type ID:   MPG3\nNum Tracks:     1\n----\nData format:     1 ch,  44100 Hz, .mp3 (0x00000000) 0 bits/channel, 0 bytes/packet, 1152 frames/packet, 0 bytes/frame\n                no channel layout.\nestimated duration: 4.440816 sec\naudio bytes: 71053\naudio packets: 170\nbit rate: 127999 bits per second\npacket size upper bound: 1052\nmaximum packet size: 418\naudio data file offset: 462\noptimized\n----\n"
+  }
+]

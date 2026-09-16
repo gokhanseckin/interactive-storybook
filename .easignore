@@ -1,0 +1,21 @@
+.DS_Store
+.git/
+.claude/
+node_modules/
+.env
+.env.*
+!.env.example
+coverage/
+dist/
+.expo/
+
+# Only the mobile workspace is needed by this EAS project.
+/content/
+/docs/
+/services/
+/apps/mobile/ios/
+/apps/mobile/android/
+
+# Generated narration stays out of Git but must be uploaded for the app bundle.
+/apps/mobile/assets/audio/*/*/*.mp3
+!/apps/mobile/assets/audio/*/*/*.mp3
