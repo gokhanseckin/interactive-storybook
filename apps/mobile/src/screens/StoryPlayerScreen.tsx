@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   type AccessibilityActionEvent,
@@ -116,7 +116,7 @@ function StoryTimeline({
         onStartShouldSetResponder={() => !disabled}
         style={[styles.timelineTouchTarget, disabled && styles.timelineDisabled]}
       >
-        <View style={styles.timelineTrack}>
+        <View pointerEvents="none" style={styles.timelineTrack}>
           <View style={[styles.timelineFill, { width: `${clampedProgress * 100}%` }]} />
         </View>
         <View
@@ -152,7 +152,8 @@ function SectionSkipIcon({ direction }: { direction: 'previous' | 'next' }) {
   );
 }
 
-export function StoryPlayerScreen() {
+export function StoryPlayerScreen({ onBack, autoStart = false }: { onBack?: () => void; autoStart?: boolean }) {
+  const started = useRef(false);
   const player = useStoryPlayer(hiddenGardenStory);
   const {
     state,
@@ -171,6 +172,12 @@ export function StoryPlayerScreen() {
     continueSaved,
     restart,
   } = player;
+
+  useEffect(() => {
+    if (!autoStart || isHydrating || started.current) return;
+    started.current = true;
+    if (!resumeSnapshot) togglePlayback();
+  }, [autoStart, isHydrating, resumeSnapshot, togglePlayback]);
 
   const showChoices = Boolean(
     choice &&
@@ -256,6 +263,9 @@ export function StoryPlayerScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.screen}>
+        {onBack && <Pressable accessibilityRole="button" accessibilityLabel="Kitaplığa dön" onPress={onBack} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ color: palette.mist, fontSize: 15 }}>‹  Kitaplığa dön</Text>
+        </Pressable>}
         <View style={styles.header}>
           <View style={styles.episodeMark}>
             <Text style={styles.episodeNumber}>{hiddenGardenStory.episode.number}</Text>
