@@ -9,7 +9,12 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.masalyolu.spike"
+      "bundleIdentifier": "com.masalyolu.spike",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Ses tanıma yalnızca cihazda çalışır ve masal seçimini anlamak için kullanılır.",
+        "NSMicrophoneUsageDescription": "Masal seçimlerini cihazda anlamak için mikrofon erişimine izin ver.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.masalyolu.spike",
@@ -19,7 +24,11 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -44,6 +53,12 @@
           ]
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1b7fb287-f6f6-4aca-91a4-39f097462875"
+      }
+    },
+    "owner": "gokhanseckin"
   }
 }

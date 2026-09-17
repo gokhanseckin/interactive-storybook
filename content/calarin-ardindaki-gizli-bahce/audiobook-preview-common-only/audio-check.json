@@ -1,0 +1,25 @@
+{
+  "validation": "Local MP3 metadata and file hashes checked. Listening review pending; no transcription performed.",
+  "tracks": [
+    {
+      "id": "01-section-one",
+      "durationSeconds": 201.216,
+      "bytes": 3219456
+    },
+    {
+      "id": "02-decision-question",
+      "durationSeconds": 9.768,
+      "bytes": 156288
+    },
+    {
+      "id": "03-option-a",
+      "durationSeconds": 37.848,
+      "bytes": 605568
+    },
+    {
+      "id": "04-option-b",
+      "durationSeconds": 34.512,
+      "bytes": 552192
+    }
+  ]
+}
