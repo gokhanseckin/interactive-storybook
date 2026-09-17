@@ -15,6 +15,12 @@ The older kite story remains a test fixture with local macOS placeholder audio.
 
 ## What the spike proves
 
+The next-stage roadmap is documented in
+[`docs/story-platform-development-plan.md`](docs/story-platform-development-plan.md),
+covering Story Studio, independent placeholder visibility, publication, progressive
+MP3 playback, downloads, and offline storage. These features are planned, not yet
+implemented by this spike.
+
 - Audio playback with a large pause/play control
 - Two equal cosmetic outcomes that return to one fixed story sequence
 - One spoken guidance message after eight seconds, with no automatic choice
@@ -123,6 +129,11 @@ checks are recorded in
 [`docs/verification-2026-09-13.md`](docs/verification-2026-09-13.md).
 
 ## Audio-generation contract
+
+The early release uses complete, playable MP3 files without DRM; DRM investment
+is deferred until the product demonstrates traction. See
+[`docs/adr-002-mp3-delivery-without-drm.md`](docs/adr-002-mp3-delivery-without-drm.md)
+for the accepted delivery decision and its implications.
 
 `POST /v1/tts` accepts:
 
