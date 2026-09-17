@@ -1,0 +1,98 @@
+{
+  "storyId": "calilarin-ardindaki-gizli-bahce-test",
+  "model": "gpt-4o-mini-tts",
+  "voice": "marin",
+  "tracks": [
+    {
+      "id": "01-section-one",
+      "title": "Bölüm 1 — Kaybolan top",
+      "sourceSegmentIds": [
+        "intro-01",
+        "intro-02",
+        "intro-03",
+        "intro-04",
+        "intro-05",
+        "intro-06",
+        "intro-07",
+        "intro-08",
+        "intro-09",
+        "intro-10",
+        "intro-11",
+        "intro-12",
+        "intro-12a",
+        "intro-13",
+        "intro-14",
+        "intro-15",
+        "intro-16",
+        "intro-17",
+        "intro-18",
+        "intro-19",
+        "intro-20",
+        "intro-21",
+        "intro-22",
+        "intro-23",
+        "intro-24",
+        "intro-25",
+        "intro-26",
+        "intro-27",
+        "intro-28",
+        "intro-29",
+        "intro-30",
+        "intro-31",
+        "intro-32",
+        "intro-33",
+        "intro-34",
+        "intro-35",
+        "intro-36",
+        "intro-37",
+        "intro-38",
+        "intro-39",
+        "intro-40",
+        "intro-41",
+        "intro-42"
+      ],
+      "input": "Öğleden sonra hava çok güzeldi. Ne çok sıcak ne de çok serindi. Hafif bir rüzgâr esiyor, ağaçların yapraklarını sallıyordu.\n\nSen Mila’sın. Küçük kardeşin Lara, komşunuz Talha ve onun küçük kardeşi Neva ile dışarıda oynuyorsun. Bazen top oynuyor, bazen birbirinizi kovalıyor, bazen de topu duvara atıp yakalamaya çalışıyorsunuz.\n\nLara topu sana doğru fırlatıyor.\n\n“Hazır ol!”\n\nTop biraz fazla yükseğe çıkıyor. Yakalamak için iki adım geri gidiyorsun. Ama top parmaklarının üzerinden geçiyor. Pof! Yere çarpıyor. Bir kez daha zıplıyor. Ve yolun kenarındaki büyük çalıların arasına giriyor.\n\n“Ben bulurum!”\n\ndiyor Talha. Hepiniz çalılara doğru koşuyorsunuz. Bu çalıları daha önce yüzlerce kez görmüştünüz. Eski bir taş duvarın önünde duran büyük bir yaprak yığını gibi görünürlerdi. Talha iki dalı yana çekiyor. Top görünmüyor. Lara eğilip bakıyor.\n\n“Daha içeri gitmiş.”\n\nSen de birkaç dalı yana itiyorsun. Ve o anda garip bir şey fark ediyorsun. Çalıların arkası düşündüğünden çok daha derin. Hatta orada bir geçit var.\n\n“Bir dakika!”\n\nDalları biraz daha açıyorsun. Kuru yapraklar yere dökülüyor. Karşınıza dar bir patika çıkıyor. Patika ancak bir kişinin geçebileceği kadar geniş. Ama sokaktan bakınca hiç görünmüyor. Talha şaşkınlıkla:\n\n“Bu yol hep burada mıydı?”\n\nLara hemen cevap veriyor:\n\n“Bu kesinlikle gizli bir yol!”\n\nNeva ise yere çömelmiş.\n\n“Neva?”\n\nNeva avucunu açıyor. Elinde yuvarlak, sarı bir taş var. Taşın üzerinde küçük bir güneş resmi bulunuyor.\n\nHepiniz taşı incelerken çalıların arkasından ince bir metal sesi geliyor. Ting! Hepiniz susuyorsunuz. Bir saniye sonra: Tak! Tak! Tak!\n\nEski taş duvarın üzerinden siyah bir baş uzanıyor. Bir karga. Adı Çın. Ama sıradan bir karga değil. Boynunda paslı küçük bir anahtar taşıyor. Gagasının ucunda da parlak bir metal pul var. Karga başını yana eğiyor.\n\n“Dört çocuk.”\n\nBirbirinize bakıyorsunuz. Karga tekrar konuşuyor.\n\n“Bir top.”\n\nLara’nın ağzı açık kalıyor.\n\n“Sen… konuşabiliyor musun?”\n\nKarga kanatlarını açıyor.\n\n“Hayır.”\n\nBir saniye bekliyor.\n\n“Ben opera söylüyorum.”\n\nTalha kaşlarını çatıyor.\n\n“Ama az önce konuştun.”\n\nKarga onu duymamış gibi davranıyor. Sonra Neva’nın elindeki sarı taşı görüyor. Gözleri büyüyor.\n\n“Güneş!”\n\nKarga duvarın üzerinde üç kez zıplıyor.\n\n“Güneş. Ay. Yıldız.”\n\nSonra gagasını size doğru uzatıyor.\n\n“Birini görürsen diğer ikisini de unutma.”\n\nLara soruyor.\n\n“Neden?”\n\nKarga kanatlarını çırpıyor.\n\n“Çünkü ben açıklama yapan bir karga değilim.”\n\nVe duvarın diğer tarafına atlıyor. Kayboluyor. Talha bir süre duvara bakıyor.\n\n“Burası gittikçe garipleşiyor.”\n\nÇalıların içinden top görünmüyor. Ama patika önünüzde uzanıyor.",
+      "instructions": "Read the supplied Turkish text exactly as one warm, natural audiobook narrator for ages 8–10. Keep the same underlying marin voice, accent, vocal register and comfortable pace throughout. Perform dialogue with small changes in tone and rhythm, never separate actor voices, caricatures or exaggerated child voices. Return smoothly to neutral narration after dialogue; do not restart the performance at paragraph breaks. Preserve every word. Do not speak these instructions or add speaker names. Voice written sound effects gently; do not add music or sound effects. Let punctuation guide natural breaths."
+    },
+    {
+      "id": "02-decision-question",
+      "title": "Karar sorusu",
+      "sourceSegmentIds": [
+        "choice-01-prompt"
+      ],
+      "input": "Nasıl devam etmek istersin? Hemen patikadan ilerleyip topu bulmak mı, yoksa önce girişin etrafına dikkatlice bakmak mı?",
+      "instructions": "Read the supplied Turkish text exactly as one warm, natural audiobook narrator for ages 8–10. Keep the same underlying marin voice, accent, vocal register and comfortable pace throughout. Perform dialogue with small changes in tone and rhythm, never separate actor voices, caricatures or exaggerated child voices. Return smoothly to neutral narration after dialogue; do not restart the performance at paragraph breaks. Preserve every word. Do not speak these instructions or add speaker names. Voice written sound effects gently; do not add music or sound effects. Let punctuation guide natural breaths."
+    },
+    {
+      "id": "03-option-a",
+      "title": "Seçenek A — Hemen patikadan ilerle",
+      "sourceSegmentIds": [
+        "choice-01-a-01",
+        "choice-01-a-02",
+        "choice-01-a-03",
+        "choice-01-a-04",
+        "choice-01-a-05",
+        "choice-01-a-06",
+        "choice-01-a-07"
+      ],
+      "input": "Önden yürümeye başlıyorsun. Dallar kollarına hafifçe değiyor. Lara, Talha ve Neva arkandan geliyor. Birkaç adım sonra ayağın bir şeye çarpıyor. Pof! Top!\n\n“Buldum!”\n\nTopu alırken ayağının altından metal bir ses geliyor. TANG! Hepiniz sıçrıyorsunuz. Toprağa yarı gömülmüş eski bir metal levhaya basmışsın. Üzerindeki yazılar silinmiş. Ama üç şekil hâlâ görünüyor. Bir güneş. Bir ay. Bir yıldız.\n\nUzaktan karganın sesi geliyor.\n\n“Üç!”\n\nLara gülüyor.\n\n“Bizi dinliyor!”",
+      "instructions": "Read the supplied Turkish text exactly as one warm, natural audiobook narrator for ages 8–10. Keep the same underlying marin voice, accent, vocal register and comfortable pace throughout. Perform dialogue with small changes in tone and rhythm, never separate actor voices, caricatures or exaggerated child voices. Return smoothly to neutral narration after dialogue; do not restart the performance at paragraph breaks. Preserve every word. Do not speak these instructions or add speaker names. Voice written sound effects gently; do not add music or sound effects. Let punctuation guide natural breaths."
+    },
+    {
+      "id": "04-option-b",
+      "title": "Seçenek B — Önce girişi incele",
+      "sourceSegmentIds": [
+        "choice-01-b-01",
+        "choice-01-b-02",
+        "choice-01-b-03",
+        "choice-01-b-04",
+        "choice-01-b-05",
+        "choice-01-b-06",
+        "choice-01-b-07",
+        "choice-01-b-08"
+      ],
+      "input": "Girişin çevresini dikkatlice inceliyorsun. Yosunların arasında düz bir şey görüyorsun. Elinle yosunu temizliyorsun. Altından küçük bir metal levha çıkıyor. Üzerindeki yazılar silinmiş. Ama üç sembol hâlâ görünüyor. Bir güneş. Bir ay. Bir yıldız.\n\nTam o sırada duvarın üzerinden Çın Karga’nın gagası beliriyor.\n\n“Üç!”\n\nSonra tekrar kayboluyor. Lara gülüyor.\n\n“Gerçekten çok tuhaf bir karga.”\n\nİçeriden Talha sesleniyor.\n\n“Top burada!”\n\nTopu alıp yanınıza geliyor.",
+      "instructions": "Read the supplied Turkish text exactly as one warm, natural audiobook narrator for ages 8–10. Keep the same underlying marin voice, accent, vocal register and comfortable pace throughout. Perform dialogue with small changes in tone and rhythm, never separate actor voices, caricatures or exaggerated child voices. Return smoothly to neutral narration after dialogue; do not restart the performance at paragraph breaks. Preserve every word. Do not speak these instructions or add speaker names. Voice written sound effects gently; do not add music or sound effects. Let punctuation guide natural breaths."
+    }
+  ]
+}

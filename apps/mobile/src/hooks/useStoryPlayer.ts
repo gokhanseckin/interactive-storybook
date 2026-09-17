@@ -228,12 +228,17 @@ export function useStoryPlayer(story: Story) {
   }, [currentSegment, dispatch, player, status.isLoaded, status.currentTime, seekRevision]);
 
   useEffect(() => {
-    if (state.mode === 'playing' && currentSegment) {
+    if (
+      state.mode === 'playing' &&
+      currentSegment &&
+      status.isLoaded &&
+      readySegmentRef.current === currentSegment.id
+    ) {
       player.play();
-    } else {
+    } else if (state.mode !== 'playing') {
       player.pause();
     }
-  }, [currentSegment, player, state.mode]);
+  }, [currentSegment, player, state.mode, status.isLoaded]);
 
   useEffect(() => {
     if (!currentSegment || !status.didJustFinish || pendingSeekRef.current) return;
