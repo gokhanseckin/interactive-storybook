@@ -66,6 +66,8 @@ export function useStoryPlayer(story: Story) {
     resumeAfterSeek: boolean;
   } | null>(null);
   const seekRequestIdRef = useRef(0);
+  const [seekRevision, setSeekRevision] = useState(0);
+  const applyingSeekRef = useRef<number | null>(null);
   const lastSavedSecondRef = useRef(-1);
   const player = useAudioPlayer(null, { updateInterval: 250, downloadFirst: true });
   const status = useAudioPlayerStatus(player);
@@ -74,7 +76,9 @@ export function useStoryPlayer(story: Story) {
     [state, story],
   );
   const playbackSectionElapsed = playbackSection
-    ? getPlaybackSectionElapsed(playbackSection, state, status.currentTime)
+    ? getPlaybackSectionElapsed(
+        playbackSection, state, pendingSeekRef.current ? state.positionSeconds : status.currentTime,
+      )
     : 0;
   const sectionNavigation = useMemo(
     () => getSectionNavigation(story, state),
@@ -202,21 +206,26 @@ export function useStoryPlayer(story: Story) {
       !currentSegment ||
       pending.segmentId !== currentSegment.id ||
       readySegmentRef.current !== currentSegment.id ||
-      !status.isLoaded
+      !status.isLoaded ||
+      applyingSeekRef.current === pending.requestId
     ) {
       return;
     }
 
-    pendingSeekRef.current = null;
+    applyingSeekRef.current = pending.requestId;
     player.seekTo(pending.positionSeconds).then(() => {
-      if (
-        pending.resumeAfterSeek &&
-        seekRequestIdRef.current === pending.requestId
-      ) {
-        dispatch({ type: 'PLAY' });
-      }
-    }).catch(() => undefined);
-  }, [currentSegment, dispatch, player, status.isLoaded]);
+      if (seekRequestIdRef.current !== pending.requestId) return;
+      pendingSeekRef.current = null;
+      lastSavedSecondRef.current = -1;
+      setSeekRevision(value => value + 1);
+      if (pending.resumeAfterSeek) dispatch({ type: 'PLAY' });
+    }).catch(() => {
+      if (seekRequestIdRef.current !== pending.requestId) return;
+      pendingSeekRef.current = null;
+      setSeekRevision(value => value + 1);
+      dispatch({ type: 'PAUSE' });
+    });
+  }, [currentSegment, dispatch, player, status.isLoaded, status.currentTime, seekRevision]);
 
   useEffect(() => {
     if (state.mode === 'playing' && currentSegment) {
@@ -227,7 +236,7 @@ export function useStoryPlayer(story: Story) {
   }, [currentSegment, player, state.mode]);
 
   useEffect(() => {
-    if (!currentSegment || !status.didJustFinish) return;
+    if (!currentSegment || !status.didJustFinish || pendingSeekRef.current) return;
     if (readySegmentRef.current !== currentSegment.id) return;
     if (finishedSegmentRef.current === currentSegment.id) return;
     finishedSegmentRef.current = currentSegment.id;
@@ -235,7 +244,7 @@ export function useStoryPlayer(story: Story) {
   }, [currentSegment, dispatch, status.didJustFinish]);
 
   useEffect(() => {
-    if (state.mode !== 'playing' || !status.isLoaded) return;
+    if (state.mode !== 'playing' || !status.isLoaded || pendingSeekRef.current) return;
     const wholeSecond = Math.floor(status.currentTime);
     if (wholeSecond === lastSavedSecondRef.current) return;
     lastSavedSecondRef.current = wholeSecond;
@@ -301,6 +310,7 @@ export function useStoryPlayer(story: Story) {
         positionSeconds: target.positionSeconds,
         resumeAfterSeek: state.mode === 'playing',
       };
+      setSeekRevision(value => value + 1);
       player.pause();
       dispatch({
         type: 'SEEK',
@@ -327,6 +337,7 @@ export function useStoryPlayer(story: Story) {
         positionSeconds: 0,
         resumeAfterSeek: state.mode === 'playing' || state.mode === 'awaitingChoice',
       };
+      setSeekRevision(value => value + 1);
       player.pause();
       dispatch({ type: 'SEEK', ...target });
     },
