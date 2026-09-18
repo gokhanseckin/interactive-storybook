@@ -55,6 +55,12 @@ export function downloads(): Promise<DownloadQueue> {
       },
       exists: verified,
       async recover(asset) {
+        const recovered = await NativeStorage.recover(
+          asset.id,
+          asset.bytes,
+          extension(asset),
+        );
+        if (recovered) return recovered;
         const path = root + asset.id + "." + extension(asset);
         return (await verified(asset, path)) ? path : null;
       },
@@ -123,6 +129,7 @@ export function downloads(): Promise<DownloadQueue> {
       },
       freeSpace: FS.getFreeDiskStorageAsync,
       async download(asset, m, progress, signal) {
+        if (signal.aborted) throw new Error("Paused");
         const final = root + asset.id + "." + extension(asset);
         if (await verified(asset, final)) return final;
         const status = await NativeStorage.status(asset.id);
@@ -145,11 +152,13 @@ export function downloads(): Promise<DownloadQueue> {
               (prior?.urgent ?? false) &&
               asset.type === "audio/mpeg",
           };
+          if (signal.aborted) throw new Error("Paused");
           specs.set(asset.id, spec);
           await NativeStorage.enqueue(spec);
         }
+        let cancelling: Promise<void> | undefined;
         const cancel = () => {
-          void NativeStorage.pause(asset.id);
+          cancelling ??= NativeStorage.pause(asset.id);
         };
         if (signal.aborted) {
           await NativeStorage.pause(asset.id);
@@ -177,6 +186,8 @@ export function downloads(): Promise<DownloadQueue> {
           throw new Error("Paused");
         } finally {
           signal.removeEventListener("abort", cancel);
+          // Do not release the observer slot while its old writer is closing.
+          await cancelling;
         }
       },
     };
@@ -215,7 +226,12 @@ export function downloads(): Promise<DownloadQueue> {
     });
     setInterval(() => void queue.pump().catch(() => {}), 2000);
     return queue;
-  })());
+  })().catch((error) => {
+    // Native initialization can fail transiently; the parent's Retry must be able
+    // to create a fresh queue instead of reusing a permanently rejected promise.
+    instance = undefined;
+    throw error;
+  }));
 }
 
 // Opt-in while physical-device acceptance remains open. Uses the same native transfer,
@@ -226,6 +242,22 @@ export async function sharedPlayback(
   asset: Asset,
   manifest: import("@story/contracts").Manifest,
 ) {
+  const root = await NativeStorage.root();
+  const final = root + asset.id + "." + extension(asset);
+  const recovered = await NativeStorage.recover(
+    asset.id,
+    asset.bytes,
+    extension(asset),
+  );
+  if (recovered) return recovered;
+  // A native completion can race source resolution, or survive loss of JS inventory.
+  // Reuse it offline before requesting a fresh ticket or reserving more disk.
+  if (await verified(asset, final)) return final;
+  if ((await FS.getInfoAsync(final)).exists) {
+    await NativeStorage.pause(asset.id);
+    await NativeStorage.forget(asset.id);
+    await FS.deleteAsync(final, { idempotent: true });
+  }
   if ((await FS.getFreeDiskStorageAsync()) < asset.bytes * 2 + 20 * 1024 * 1024)
     throw new Error("Not enough storage. Remove downloads or clear cache.");
   const ticket = await delivery(manifest, asset.id);

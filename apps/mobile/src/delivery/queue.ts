@@ -147,10 +147,10 @@ export class DownloadQueue {
     if (id === this.streaming) return false;
     return this.owners(id).some(
       (p) =>
-        !p.paused &&
-        ((p.manifest.releaseId === this.activeRelease &&
-          (this.wifi || this.urgent.has(id))) ||
-          (p.pinned && (this.wifi || this.state.cellular))),
+        (p.manifest.releaseId === this.activeRelease && this.urgent.has(id)) ||
+        (!p.paused &&
+          ((p.manifest.releaseId === this.activeRelease && this.wifi) ||
+            (p.pinned && (this.wifi || this.state.cellular)))),
     );
   }
   private applyPolicy() {

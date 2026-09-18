@@ -149,7 +149,7 @@ final class SharedPlayback {
         } catch { return }
       } else {
         let state = NativeTransfers.shared.status(id)["state"] as? String ?? "missing"
-        if ["failed", "paused", "missing"].contains(state) || Date() > deadline { return }
+        if ["failed", "paused", "missing", "complete"].contains(state) || Date() > deadline { return }
         Thread.sleep(forTimeInterval: 0.025)
       }
     }

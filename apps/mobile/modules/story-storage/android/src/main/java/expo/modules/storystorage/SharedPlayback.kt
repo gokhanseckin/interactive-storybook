@@ -65,13 +65,13 @@ class SharedPlayback private constructor(private val context: Context) {
   var position = start; var deadline = System.currentTimeMillis() + 120000
   val buffer = ByteArray(65536)
   while (position <= end) {
-   val state = JSONObject(StoryDownloadWorker.prefs(context).getString(id,"{}") ?: "{}").optString("state")
+   val state = JSONObject(StoryDownloadWorker.prefs(context).getString(id,"{}") ?: "{}").optString("state","missing")
    val file = if (final.exists()) final else partial
    if (file.exists() && file.length() > position) {
     try { RandomAccessFile(file, "r").use { f -> f.seek(position); val n=f.read(buffer,0,minOf(buffer.size.toLong(),end-position+1,file.length()-position).toInt()); if(n>0){output.write(buffer,0,n);position+=n;deadline=System.currentTimeMillis()+120000} } }
     catch (_: java.io.FileNotFoundException) { continue } // atomic promotion raced this read
    } else {
-    if (state in listOf("failed","paused","missing") || System.currentTimeMillis()>deadline) return
+    if (state in listOf("failed","paused","missing","complete") || System.currentTimeMillis()>deadline) return
     Thread.sleep(25)
    }
   }

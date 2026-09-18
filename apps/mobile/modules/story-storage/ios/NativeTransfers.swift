@@ -36,13 +36,45 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
   private var liveTasks: [String: URLSessionTask] = [:]
   private var writers: [Int: FileHandle] = [:]
   private var handoffs: [Int: String] = [:]
+  private var handoffEnqueues = 0
+  private var pauseWaiters: [Int: [() -> Void]] = [:]
+  private var backgroundLease: UIBackgroundTaskIdentifier = .invalid
+  private var isBackground = false
+  func enteredForeground() {
+    lock.lock()
+    isBackground = false
+    lock.unlock()
+  }
+  private func finishHandoff() {
+    guard handoffs.isEmpty && handoffEnqueues == 0 else { return }
+    DispatchQueue.main.async {
+      if self.backgroundLease != .invalid {
+        UIApplication.shared.endBackgroundTask(self.backgroundLease)
+        self.backgroundLease = .invalid
+      }
+    }
+  }
   func handoffToBackground() {
+    lock.lock()
+    isBackground = true
+    lock.unlock()
+    // Keep execution alive until cancellation closes/syncs the foreground prefix and
+    // the OS-owned suffix task has been scheduled. Background audio is separate.
+    if backgroundLease == .invalid {
+      backgroundLease = UIApplication.shared.beginBackgroundTask(withName: "Story handoff") {
+        if self.backgroundLease != .invalid {
+          UIApplication.shared.endBackgroundTask(self.backgroundLease)
+          self.backgroundLease = .invalid
+        }
+      }
+    }
     foreground.getAllTasks { tasks in
       self.lock.lock()
       defer { self.lock.unlock() }
       for task in tasks {
         guard let id = task.taskDescription, self.current(task, id),
-          self.jobs[id]?["state"] as? String == "running", var spec = self.jobs[id]
+          ["queued", "running"].contains(self.jobs[id]?["state"] as? String ?? ""),
+          var spec = self.jobs[id]
         else { continue }
         spec["progressive"] = false
         if let data = try? JSONSerialization.data(withJSONObject: spec),
@@ -52,6 +84,7 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
           task.cancel()
         }
       }
+      self.finishHandoff()
     }
   }
   private func current(_ task: URLSessionTask, _ id: String) -> Bool {
@@ -72,6 +105,56 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
     _ = session
     _ = foreground
   }
+  func recover(_ id: String, _ expected: Int, _ ext: String) -> String? {
+    lock.lock()
+    defer { lock.unlock() }
+    guard id.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+      ["mp3", "png", "jpg"].contains(ext), expected > 0
+    else { return nil }
+    // Do not rename a file while an owned writer is still using it.
+    if let task = liveTasks[id], task.state != .completed { return nil }
+    let target = root.appendingPathComponent(id + "." + ext)
+    let partial = root.appendingPathComponent(id + ".partial")
+    if !validFile(target, id, expected) {
+      guard validFile(partial, id, expected) else { return nil }
+      do {
+        if files.fileExists(atPath: target.path) { try files.removeItem(at: target) }
+        try files.moveItem(at: partial, to: target)
+      } catch { return nil }
+    }
+    var spec = jobs[id] ?? [:]
+    spec["state"] = "complete"
+    spec["bytes"] = expected
+    spec["bytesWritten"] = expected
+    spec["uri"] = target.absoluteString
+    spec["extension"] = ext
+    spec["id"] = id
+    jobs[id] = spec
+    save()
+    return target.absoluteString
+  }
+  private func validFile(_ file: URL, _ id: String, _ expected: Int) -> Bool {
+    guard expected > 0,
+      (try? files.attributesOfItem(atPath: file.path)[.size] as? NSNumber)?.intValue == expected,
+      let handle = try? FileHandle(forReadingFrom: file)
+    else { return false }
+    defer { try? handle.close() }
+    do {
+      var hash = SHA256()
+      while let data = try handle.read(upToCount: 262144), !data.isEmpty { hash.update(data: data) }
+      return hash.finalize().map { String(format: "%02x", $0) }.joined() == id
+    } catch { return false }
+  }
+  private func validResponse(_ response: HTTPURLResponse, _ offset: Int, _ expected: Int) -> Bool {
+    if let encoding = response.value(forHTTPHeaderField: "Content-Encoding"), encoding != "identity"
+    {
+      return false
+    }
+    if response.statusCode == 200 { return true }  // Explicit full replacement, never append.
+    return response.statusCode == 206 && expected > offset
+      && response.value(forHTTPHeaderField: "Content-Range")
+        == "bytes \(offset)-\(expected - 1)/\(expected)"
+  }
   private func save() {
     if let data = try? JSONSerialization.data(withJSONObject: jobs) {
       try? data.write(to: root.appendingPathComponent("transfers.json"), options: .atomic)
@@ -88,6 +171,7 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
     do {
       guard let data = json.data(using: .utf8),
         var spec = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let expectedBytes = spec["bytes"] as? Int, expectedBytes > 0,
         let id = spec["id"] as? String,
         id.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
         let urlString = spec["url"] as? String, let url = URL(string: urlString),
@@ -102,21 +186,30 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
           $0.taskDescription == id && self.current($0, id)
             && ($0.state == .running || $0.state == .suspended)
         }) {
+          if self.jobs[id]?["wifiOnly"] as? Bool != (spec["wifiOnly"] as? Bool ?? true) {
+            self.pause(id) { self.enqueue(json, completion: completion) }
+            return
+          }
           existing.priority =
             (spec["urgent"] as? Bool ?? false)
             ? URLSessionTask.highPriority : URLSessionTask.lowPriority
           completion(nil)
           return
         }
-        if self.jobs[id]?["state"] as? String == "complete",
-          self.files.fileExists(
-            atPath: self.root.appendingPathComponent(
-              id + "." + (spec["extension"] as? String ?? "mp3")
-            ).path)
-        {
+        let target = self.root.appendingPathComponent(
+          id + "." + (spec["extension"] as? String ?? "mp3"))
+        let expectedBytes = spec["bytes"] as? Int ?? 0
+        if self.validFile(target, id, expectedBytes) {
+          spec["state"] = "complete"
+          spec["bytesWritten"] = expectedBytes
+          spec["uri"] = target.absoluteString
+          self.jobs[id] = spec
+          self.save()
           completion(nil)
           return
         }
+        // Missing/corrupt final files must not shadow the new durable prefix.
+        if self.files.fileExists(atPath: target.path) { try? self.files.removeItem(at: target) }
         let partialFile = self.root.appendingPathComponent(id + ".partial")
         let partialSize =
           ((try? self.files.attributesOfItem(atPath: partialFile.path)[.size]) as? NSNumber)?
@@ -153,15 +246,23 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
             return
           }
         }
+        let free =
+          ((try? self.files.attributesOfFileSystem(forPath: self.root.path)[.systemFreeSize])
+          as? NSNumber)?.int64Value ?? 0
+        if free < Int64(expected) * 2 + 20 * 1024 * 1024 {
+          completion(NSError(domain: "Not enough storage", code: 6))
+          return
+        }
         let prior = self.jobs[id]
         var request = URLRequest(url: url)
         request.timeoutInterval = 120
+        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         let wifi = spec["wifiOnly"] as? Bool ?? true
         request.allowsCellularAccess = !wifi
         request.allowsExpensiveNetworkAccess = !wifi
         request.allowsConstrainedNetworkAccess = !wifi
         let task: URLSessionTask
-        let progressive = spec["progressive"] as? Bool ?? false
+        let progressive = (spec["progressive"] as? Bool ?? false) && !self.isBackground
         let partial = self.root.appendingPathComponent(id + ".partial")
         let offset =
           ((try? self.files.attributesOfItem(atPath: partial.path)[.size]) as? NSNumber)?.intValue
@@ -227,39 +328,43 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
       self.save()
     }
   }
-  func pause(_ id: String, completion: @escaping () -> Void) {
+  func pause(_ id: String, onlyIfUnretained: Bool = false, completion: @escaping () -> Void) {
     allTasks { tasks in
+      self.lock.lock()
+      defer { self.lock.unlock() }
+      if onlyIfUnretained && self.retained?.contains(id) != false {
+        completion()
+        return
+      }
+      let candidates = [self.liveTasks[id]].compactMap { $0 } + tasks
       guard
-        let task = tasks.first(where: {
-          $0.taskDescription == id && ($0.state == .running || $0.state == .suspended)
+        let task = candidates.first(where: {
+          $0.taskDescription == id && self.current($0, id) && $0.state != .completed
         })
       else {
         completion()
         return
       }
-      if !(task is URLSessionDownloadTask) {
-        self.lock.lock()
-        self.jobs[id]?["state"] = "paused"
-        self.save()
-        self.lock.unlock()
+      self.jobs[id]?["state"] = "paused"
+      self.handoffs.removeValue(forKey: task.taskIdentifier)
+      self.save()
+      if task is URLSessionDataTask {
+        // Promise is a writer-close barrier: a policy change/remove may safely enqueue
+        // or unlink immediately after it resolves.
+        self.pauseWaiters[task.taskIdentifier, default: []].append(completion)
         task.cancel()
-        completion()
-        return
-      }
-      let download = task as! URLSessionDownloadTask
-      download.cancel(byProducingResumeData: { data in
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        guard self.current(task, id) else {
+      } else if let download = task as? URLSessionDownloadTask {
+        download.cancel(byProducingResumeData: { data in
+          self.lock.lock()
+          defer { self.lock.unlock() }
+          if self.current(task, id), let data {
+            self.jobs[id]?["resume"] = data.base64EncodedString()
+          }
+          self.save()
+          self.startNext()
           completion()
-          return
-        }
-        self.jobs[id]?["state"] = "paused"
-        if let data { self.jobs[id]?["resume"] = data.base64EncodedString() }
-        self.save()
-        self.startNext()
-        completion()
-      })
+        })
+      }
     }
   }
   func retain(_ ids: [String]) {
@@ -270,21 +375,10 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
       self.lock.lock()
       defer { self.lock.unlock() }
       for task in tasks {
-        guard let id = task.taskDescription, self.retained?.contains(id) == false else { continue }
-        guard let download = task as? URLSessionDownloadTask else {
-          self.jobs[id]?["state"] = "paused"
-          task.cancel()
-          continue
-        }
-        download.cancel(byProducingResumeData: { data in
-          self.lock.lock()
-          defer { self.lock.unlock() }
-          guard self.current(task, id) else { return }
-          self.jobs[id]?["state"] = "paused"
-          if let data { self.jobs[id]?["resume"] = data.base64EncodedString() }
-          self.save()
-          self.startNext()
-        })
+        guard let id = task.taskDescription, self.current(task, id),
+          self.retained?.contains(id) == false
+        else { continue }
+        self.pause(id, onlyIfUnretained: true) {}
       }
     }
   }
@@ -308,7 +402,9 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
     lock.lock()
     defer { lock.unlock() }
     guard current(downloadTask, id) else { return }
-    let prefix = jobs[id]?["prefixBytes"] as? Int ?? 0
+    let prefix =
+      (downloadTask.response as? HTTPURLResponse)?.statusCode == 200
+      ? 0 : (jobs[id]?["prefixBytes"] as? Int ?? 0)
     jobs[id]?["bytesWritten"] = totalBytesWritten + Int64(prefix)
   }
   func urlSession(
@@ -323,6 +419,10 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
       guard let response = downloadTask.response as? HTTPURLResponse,
         [200, 206].contains(response.statusCode), let expected = jobs[id]?["bytes"] as? Int
       else { throw NSError(domain: "StoryTransfer", code: 2) }
+      let offset = jobs[id]?["prefixBytes"] as? Int ?? 0
+      guard validResponse(response, offset, expected) else {
+        throw NSError(domain: "StoryTransfer", code: 5)
+      }
       var location = location
       if response.statusCode == 206 {
         let offset = jobs[id]?["prefixBytes"] as? Int ?? 0
@@ -360,6 +460,7 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
         id + "." + (jobs[id]?["extension"] as? String ?? "mp3"))
       if files.fileExists(atPath: target.path) { try files.removeItem(at: target) }
       try files.moveItem(at: location, to: target)
+      try? files.removeItem(at: root.appendingPathComponent(id + ".partial"))
       jobs[id]?["state"] = "complete"
       jobs[id]?["bytesWritten"] = expected
       jobs[id]?["uri"] = target.absoluteString
@@ -379,15 +480,31 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
     if task is URLSessionDataTask {
       lock.lock()
       defer { lock.unlock() }
-      try? writers.removeValue(forKey: task.taskIdentifier)?.close()
+      if let writer = writers.removeValue(forKey: task.taskIdentifier) {
+        try? writer.synchronize()
+        try? writer.close()
+      }
+      let waiters = pauseWaiters.removeValue(forKey: task.taskIdentifier) ?? []
+      defer { waiters.forEach { $0() } }
       guard current(task, id) else { return }
       if let next = handoffs.removeValue(forKey: task.taskIdentifier) {
         jobs[id]?["state"] = "paused"
         save()
-        if retained?.contains(id) != false { enqueue(next) { _ in } }
+        if retained?.contains(id) != false {
+          handoffEnqueues += 1
+          enqueue(next) { _ in
+            self.lock.lock()
+            defer { self.lock.unlock() }
+            self.handoffEnqueues -= 1
+            self.finishHandoff()
+          }
+        } else {
+          finishHandoff()
+        }
         return
       }
-      if error == nil {
+      finishHandoff()
+      if error == nil && jobs[id]?["state"] as? String != "paused" {
         do {
           let file = root.appendingPathComponent(id + ".partial")
           let expected = jobs[id]?["bytes"] as? Int ?? 0
@@ -422,6 +539,9 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
     if (error as NSError).code != NSURLErrorCancelled {
       jobs[id]?["state"] = "failed"
       jobs[id]?["error"] = "Transfer interrupted (\((error as NSError).code))"
+      if let data = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
+        jobs[id]?["resume"] = data.base64EncodedString()
+      }
       save()
       startNext()
     }
@@ -445,6 +565,9 @@ final class NativeTransfers: NSObject, URLSessionDownloadDelegate, URLSessionDat
     do {
       let file = root.appendingPathComponent(id + ".partial")
       let offset = jobs[id]?["prefixBytes"] as? Int ?? 0
+      guard validResponse(response, offset, jobs[id]?["bytes"] as? Int ?? 0) else {
+        throw NSError(domain: "StoryTransfer", code: 5)
+      }
       if response.statusCode == 206 {
         guard
           response.value(forHTTPHeaderField: "Content-Range")?.hasPrefix("bytes \(offset)-") == true
