@@ -7,11 +7,165 @@ let user,
   previewNode,
   previewAudio = new Audio();
 previewAudio.controls = true;
+let savedDraft = "",
+  jsonDraft = null,
+  conflict = false,
+  requestPending = false;
+let playbackVersion = 0,
+  cancelPlayback;
+const hasRole = (role) => user?.roles.some((r) => r === role || r === "admin");
+const canEdit = () =>
+  hasRole("admin") ||
+  (hasRole("creator") &&
+    (current?.owner === user.id || current?.editors.includes(user.id)));
+const draftValue = () =>
+  JSON.stringify({ story: current.story, card: current.card });
+const dirty = () =>
+  Boolean(current && (jsonDraft !== null || draftValue() !== savedDraft));
+function updateDirty() {
+  const status = document.querySelector("#edit-status");
+  if (status)
+    status.textContent = dirty()
+      ? "Unsaved changes. Saving invalidates preview and review for this draft."
+      : `Saved revision ${current.revision}. Preview: ${current.preview?.revision === current.revision ? "acknowledged" : "required"}. Review: ${current.review?.revision === current.revision ? "approved" : "required"}.`;
+}
+function leaveDraft() {
+  return (
+    !dirty() ||
+    confirm(
+      "Discard your unsaved changes? Export a copy first if you need to keep them.",
+    )
+  );
+}
+function requireSaved() {
+  if (dirty())
+    throw new Error(
+      "Save or discard your changes before using this action. It applies to the saved revision.",
+    );
+  if (conflict)
+    throw new Error(
+      "The server revision changed. Reload the latest revision before continuing.",
+    );
+}
+function stopPlayback() {
+  playbackVersion++;
+  previewAudio.pause();
+  cancelPlayback?.();
+  cancelPlayback = null;
+  previewAudio.onended = previewAudio.onerror = null;
+}
+window.addEventListener("beforeunload", (e) => {
+  if (dirty() || requestPending) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+document.querySelector(".brand").onclick = (e) => {
+  e.preventDefault();
+  if (!requestPending) run(library);
+};
+function exportDraft() {
+  // Recovery includes catalog edits and unapplied JSON as well as the story.
+  const recovery = URL.createObjectURL(
+    new Blob(
+      [
+        JSON.stringify(
+          {
+            revision: current.revision,
+            story: current.story,
+            card: current.card,
+            jsonDraft,
+          },
+          null,
+          2,
+        ),
+      ],
+      { type: "application/json" },
+    ),
+  );
+  el("a", "", {
+    href: recovery,
+    download: `${current.id}-recovery.json`,
+  }).click();
+  URL.revokeObjectURL(recovery);
+}
+function errorLinks(message, parent = notice) {
+  for (const text of message.split("\n")) {
+    parent.append(button(text, () => locateError(text)));
+  }
+}
+function locateError(message) {
+  let path = message.split(":")[0];
+  if (["description", "cover"].includes(path)) path = "card." + path;
+  if (path === "card.title") path = "title";
+  if (path === "card.ageBand") path = "ageBand";
+  tab = path.startsWith("audio.")
+    ? "Audio"
+    : /^(nodes|entryNodeId)/.test(path)
+      ? "Content"
+      : "Details";
+  render();
+  const targets = [...root.querySelectorAll("[data-path]")];
+  const target = targets
+    .filter(
+      (e) => path === e.dataset.path || path.startsWith(e.dataset.path + "."),
+    )
+    .sort((a, b) => b.dataset.path.length - a.dataset.path.length)[0];
+  const focus = target?.matches("input,textarea,button")
+    ? target
+    : target?.querySelector("input,textarea,button") || target;
+  if (focus) {
+    if (!focus.matches("input,textarea,button")) focus.tabIndex = -1;
+    focus.focus();
+    focus.scrollIntoView({ block: "center" });
+  }
+}
+function markPath(node, path) {
+  node.dataset.path = path;
+  return node;
+}
+async function request(path, options) {
+  if (requestPending)
+    throw new Error("A request is still in progress. Please wait.");
+  requestPending = true;
+  root.inert = true;
+  document.querySelector("#identity").inert = true;
+  try {
+    const res = await fetch(path, options);
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error(
+        "The server response could not be read. Refresh status before retrying.",
+      );
+    }
+    if (!res.ok) {
+      const error = new Error(data.error || "Request failed");
+      error.status = res.status;
+      throw error;
+    }
+    return data;
+  } finally {
+    requestPending = false;
+    root.inert = false;
+    document.querySelector("#identity").inert = false;
+  }
+}
 const el = (tag, text, props = {}) =>
   Object.assign(document.createElement(tag), { textContent: text, ...props });
 const button = (label, fn, primary = false) => {
   const b = el("button", label, { className: primary ? "primary" : "" });
-  b.onclick = () => run(fn);
+  b.type = "button";
+  b.onclick = async () => {
+    if (b.disabled || requestPending) return;
+    b.disabled = true;
+    try {
+      await run(fn);
+    } finally {
+      b.disabled = false;
+    }
+  };
   return b;
 };
 const append = (parent, ...children) => {
@@ -24,7 +178,10 @@ const field = (label, value, onchange, type = "text") => {
     value: value ?? "",
   });
   if (type !== "textarea") input.type = type;
-  input.oninput = () => onchange(input.value);
+  input.oninput = () => {
+    onchange(input.value);
+    updateDirty();
+  };
   wrap.append(input);
   return wrap;
 };
@@ -33,21 +190,40 @@ const box = (...nodes) =>
 const actions = (...nodes) =>
   append(el("div", "", { className: "actions" }), ...nodes);
 async function api(path, body, method = body === undefined ? "GET" : "POST") {
-  const res = await fetch("/api" + path, {
+  return request("/api" + path, {
     method,
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
 }
+
 async function run(fn) {
   notice.textContent = "";
   try {
     await fn();
   } catch (e) {
     notice.textContent = e.message;
+    if (current && e.status === 409 && /revision changed/i.test(e.message)) {
+      conflict = true;
+      notice.append(
+        el(
+          "p",
+          "Your local edits are preserved. Export a recovery copy, then reload and reconcile with the latest revision.",
+        ),
+        button("Export local changes", exportDraft),
+        button("Reload latest revision", async () => {
+          if (leaveDraft()) await open(current.id);
+        }),
+      );
+    } else if (
+      current &&
+      /^(card\.|audio\.|nodes\.|entryNodeId|description:|cover:|title:|language:|ageBand:|voice\.|episode\.)/m.test(
+        e.message,
+      )
+    ) {
+      notice.textContent = "Please fix the following fields:";
+      errorLinks(e.message);
+    }
   }
 }
 const clips = (s) =>
@@ -62,8 +238,13 @@ const clips = (s) =>
   );
 const bytes = (n) => `${(n / 1048576).toFixed(1)} MB`;
 async function open(id) {
-  previewAudio.pause();
-  current = await api("/stories/" + id);
+  stopPlayback();
+  const next = await api("/stories/" + id);
+  current = next;
+  savedDraft = draftValue();
+  jsonDraft = null;
+  conflict = false;
+  previewManifest = null;
   render();
 }
 function login() {
@@ -94,6 +275,7 @@ async function start() {
     document.querySelector("#identity").replaceChildren(
       el("span", user.email + " "),
       button("Sign out", async () => {
+        if (!leaveDraft()) return;
         await api("/logout", {});
         location.reload();
       }),
@@ -104,10 +286,13 @@ async function start() {
   }
 }
 async function library() {
-  previewAudio.pause();
-  current = null;
-  root.replaceChildren();
+  if (!leaveDraft()) return;
+  stopPlayback();
   const stories = await api("/stories");
+  current = null;
+  jsonDraft = null;
+  conflict = false;
+  root.replaceChildren();
   append(root, el("h1", "Your story library"));
   const tools = el("div", "", { className: "toolbar" }),
     list = el("div");
@@ -135,7 +320,12 @@ async function library() {
     filter = select.value;
     draw();
   };
-  append(tools, search, select, button("New story", newStory, true));
+  append(
+    tools,
+    search,
+    select,
+    hasRole("creator") && button("New story", newStory, true),
+  );
   append(root, tools, list);
   function draw() {
     list.replaceChildren();
@@ -156,7 +346,11 @@ async function library() {
               el("span", `Catalog: ${d.visibility}`, { className: "badge" }),
               el(
                 "p",
-                d.owner === user.id ? "Owned by you" : "Shared with you",
+                d.owner === user.id
+                  ? "Owned by you"
+                  : d.editors.includes(user.id)
+                    ? "Shared with you"
+                    : "Publisher review access",
                 { className: "muted" },
               ),
             ),
@@ -203,6 +397,14 @@ async function newStory() {
   await open(d.id);
 }
 async function save() {
+  if (conflict)
+    throw new Error(
+      "Reload the latest revision and reconcile your edits before saving.",
+    );
+  if (jsonDraft !== null)
+    throw new Error(
+      "Apply the JSON import or discard its changes before saving.",
+    );
   const d = await api(
     "/stories/" + current.id,
     { revision: current.revision, story: current.story, card: current.card },
@@ -210,7 +412,7 @@ async function save() {
   );
   await open(d.id);
   notice.textContent =
-    "Draft saved. Existing published releases are unchanged.";
+    "Draft saved. Preview and review must be completed again for this revision. Existing published releases are unchanged.";
 }
 function render() {
   root.replaceChildren();
@@ -223,6 +425,17 @@ function render() {
     }),
     el("span", `Catalog: ${current.visibility}`, { className: "badge" }),
   );
+  append(
+    root,
+    el("p", "", { id: "edit-status", role: "status" }),
+    actions(
+      button("Export local changes", exportDraft),
+      button("Reload latest revision", async () => {
+        if (leaveDraft()) await open(current.id);
+      }),
+    ),
+  );
+  updateDirty();
   const layout = el("div", "", { className: "workspace" }),
     rail = el("nav", "", { className: "rail", ariaLabel: "Story workspace" }),
     content = el("section");
@@ -236,7 +449,7 @@ function render() {
     "Access",
   ].forEach((t) => {
     const b = button(t, () => {
-      previewAudio.pause();
+      stopPlayback();
       tab = t;
       render();
     });
@@ -254,6 +467,31 @@ function render() {
     "Review & publish": review,
     Access: access,
   })[tab](content);
+  const editing = ["Details", "Content", "Audio"].includes(tab);
+  if (editing && !canEdit()) {
+    content.prepend(
+      el("p", "Read-only: editing requires creator access to this story."),
+    );
+    content.querySelectorAll("input,textarea,button").forEach((control) => {
+      if (
+        !["Listen", "Refresh queue", "Export JSON"].includes(
+          control.textContent,
+        )
+      )
+        control.disabled = true;
+    });
+  }
+  if (["Catalog", "Review & publish"].includes(tab) && !hasRole("publisher")) {
+    content.prepend(
+      el(
+        "p",
+        "Only a publisher can change visibility, approve, publish, schedule or roll back releases.",
+      ),
+    );
+    content.querySelectorAll("button,input").forEach((control) => {
+      if (!control.dataset.validation) control.disabled = true;
+    });
+  }
 }
 function details(p) {
   append(
@@ -304,6 +542,20 @@ function details(p) {
     el("h2", "Cover"),
     upload(null),
   );
+  const paths = [
+    "title",
+    "card.description",
+    "language",
+    "ageBand",
+    "episode.title",
+    "episode.number",
+    "voice.providerVoice",
+    "voice.globalDirection",
+  ];
+  [...p.querySelectorAll("label")].forEach((label, i) =>
+    markPath(label, paths[i]),
+  );
+  markPath(p.querySelector('input[type="file"]'), "card.cover");
 }
 function upload(segmentId) {
   const input = el("input", "", {
@@ -313,16 +565,20 @@ function upload(segmentId) {
   });
   input.onchange = () =>
     run(async () => {
+      requireSaved();
       const f = input.files[0];
+      input.value = "";
       if (!f) return;
       const url = `/api/stories/${current.id}/assets?revision=${current.revision}${segmentId ? "&segmentId=" + encodeURIComponent(segmentId) : ""}`;
-      const res = await fetch(url, {
+      notice.textContent = `Uploading ${f.name} and validating media…`;
+      await request(url, {
         method: "POST",
         headers: { "Content-Type": segmentId ? "audio/mpeg" : f.type },
         body: f,
       });
-      if (!res.ok) throw new Error((await res.json()).error);
       await open(current.id);
+      notice.textContent =
+        "Upload validated and attached. Preview and review were reset.";
     });
   return input;
 }
@@ -332,14 +588,32 @@ function contentEditor(p) {
     el("h2", "Scenes and choices"),
     el(
       "p",
-      "Scenes play in order. Each choice has two responses and a shared continuation. Save before leaving this tab.",
+      "Scenes play in order. Each choice has two responses and a shared continuation. Edits remain local across tabs until saved.",
     ),
   );
-  let node = current.story.nodes[current.story.entryNodeId],
+  p.append(
+    markPath(
+      field(
+        "Entry scene",
+        current.story.entryNodeId,
+        (v) => (current.story.entryNodeId = v),
+      ),
+      "entryNodeId",
+    ),
+  );
+  // Follow graph order first, then expose disconnected scenes for repair.
+  const ordered = [],
     seen = new Set();
-  while (node && !seen.has(node.id)) {
-    seen.add(node.id);
-    const n = node;
+  let cursor = current.story.entryNodeId;
+  while (cursor && current.story.nodes[cursor] && !seen.has(cursor)) {
+    seen.add(cursor);
+    ordered.push([cursor, current.story.nodes[cursor]]);
+    cursor = current.story.nodes[cursor].nextNodeId;
+  }
+  ordered.push(
+    ...Object.entries(current.story.nodes).filter(([key]) => !seen.has(key)),
+  );
+  for (const [nodeId, n] of ordered) {
     const block = el("div", "", {
       className: n.kind === "choice" ? "scene choice" : "scene",
     });
@@ -347,30 +621,60 @@ function contentEditor(p) {
       block,
       el("h3", `${n.kind === "choice" ? "Choice" : "Scene"}: ${n.id}`),
     );
+    markPath(block, `nodes.${nodeId}`);
+    block.append(
+      markPath(
+        field(
+          "Next scene (empty ends narration)",
+          n.nextNodeId,
+          (v) => (n.nextNodeId = v || null),
+        ),
+        `nodes.${nodeId}.nextNodeId`,
+      ),
+    );
     if (n.kind === "narration")
-      n.segments.forEach((s) => block.append(segmentFields(s)));
+      n.segments.forEach((s, i) =>
+        block.append(segmentFields(s, `nodes.${nodeId}.segments.${i}`)),
+      );
     else {
-      n.promptSegments.forEach((s) => block.append(segmentFields(s)));
-      block.append(el("h4", "Guidance"), segmentFields(n.guidanceSegment));
-      n.options.forEach((o) => {
+      n.promptSegments.forEach((s, i) =>
+        block.append(segmentFields(s, `nodes.${nodeId}.promptSegments.${i}`)),
+      );
+      block.append(
+        el("h4", "Guidance"),
+        segmentFields(n.guidanceSegment, `nodes.${nodeId}.guidanceSegment`),
+      );
+      n.options.forEach((o, oi) => {
         append(
           block,
-          field("Option label", o.label, (v) => (o.label = v)),
-          field(
-            "Voice hints (comma separated)",
-            o.voiceHints.join(", "),
-            (v) =>
-              (o.voiceHints = v
-                .split(",")
-                .map((x) => x.trim())
-                .filter(Boolean)),
+          markPath(
+            field("Option label", o.label, (v) => (o.label = v)),
+            `nodes.${nodeId}.options.${oi}.label`,
+          ),
+          markPath(
+            field(
+              "Voice hints (comma separated)",
+              o.voiceHints.join(", "),
+              (v) =>
+                (o.voiceHints = v
+                  .split(",")
+                  .map((x) => x.trim())
+                  .filter(Boolean)),
+            ),
+            `nodes.${nodeId}.options.${oi}.voiceHints`,
           ),
         );
-        o.responseSegments.forEach((s) => block.append(segmentFields(s)));
+        o.responseSegments.forEach((s, i) =>
+          block.append(
+            segmentFields(
+              s,
+              `nodes.${nodeId}.options.${oi}.responseSegments.${i}`,
+            ),
+          ),
+        );
       });
     }
     p.append(block);
-    node = n.nextNodeId ? current.story.nodes[n.nextNodeId] : null;
   }
   append(
     p,
@@ -381,10 +685,14 @@ function contentEditor(p) {
     ),
   );
   const json = el("textarea", "", {
-    value: JSON.stringify(current.story, null, 2),
+    value: jsonDraft ?? JSON.stringify(current.story, null, 2),
     className: "json",
     ariaLabel: "Story JSON",
   });
+  json.oninput = () => {
+    jsonDraft = json.value;
+    updateDirty();
+  };
   append(
     p,
     el("h2", "Import / export"),
@@ -392,9 +700,47 @@ function contentEditor(p) {
     actions(
       button("Import JSON into editor", () => {
         const s = JSON.parse(json.value);
+        if (
+          !s ||
+          !s.nodes ||
+          !s.voice ||
+          !s.episode ||
+          typeof s.title !== "string" ||
+          !Object.values(s.nodes).every(
+            (n) =>
+              n &&
+              typeof n.id === "string" &&
+              (n.kind === "narration"
+                ? Array.isArray(n.segments) && n.segments.every(validSegment)
+                : n.kind === "choice" &&
+                  Array.isArray(n.promptSegments) &&
+                  n.promptSegments.every(validSegment) &&
+                  validSegment(n.guidanceSegment) &&
+                  Array.isArray(n.options) &&
+                  n.options.every(
+                    (o) =>
+                      o &&
+                      Array.isArray(o.voiceHints) &&
+                      Array.isArray(o.responseSegments) &&
+                      o.responseSegments.every(validSegment),
+                  )),
+          )
+        )
+          throw new Error(
+            "JSON needs story details, voice, episode and well-formed scenes. Your import text is preserved. Full schema and graph validation runs on Save content.",
+          );
         s.id = current.id;
         current.story = s;
+        current.card.title = s.title;
+        current.card.ageBand = s.ageBand;
+        jsonDraft = null;
         render();
+      }),
+      button("Discard JSON changes", () => {
+        if (confirm("Discard unapplied JSON changes?")) {
+          jsonDraft = null;
+          render();
+        }
       }),
       button("Export JSON", () => {
         const blob = new Blob([JSON.stringify(current.story, null, 2)], {
@@ -408,12 +754,23 @@ function contentEditor(p) {
     ),
   );
 }
-function segmentFields(s) {
-  return box(
+function validSegment(s) {
+  return (
+    s &&
+    typeof s.id === "string" &&
+    typeof s.text === "string" &&
+    typeof s.speaker === "string"
+  );
+}
+function segmentFields(s, path) {
+  const block = box(
     el("span", s.id, { className: "muted" }),
     field("Spoken text", s.text, (v) => (s.text = v), "textarea"),
     field("Speaker", s.speaker, (v) => (s.speaker = v)),
-    field("Direction", s.direction, (v) => (s.direction = v)),
+    field("Direction", s.direction, (v) => {
+      if (v) s.direction = v;
+      else delete s.direction;
+    }),
     field(
       "Reviewed tagged text (optional)",
       s.ttsText,
@@ -424,6 +781,11 @@ function segmentFields(s) {
       "textarea",
     ),
   );
+  markPath(block, path);
+  ["text", "speaker", "direction", "ttsText"].forEach((name, i) =>
+    markPath(block.querySelectorAll("label")[i], `${path}.${name}`),
+  );
+  return block;
 }
 function addNode(choice) {
   const id = "scene-" + crypto.randomUUID().slice(0, 8),
@@ -481,6 +843,7 @@ function audioEditor(p) {
   append(
     p,
     el("h2", "Narration"),
+    previewAudio,
     el(
       "p",
       `${clips(current.story).length} clips · ${current.errors.filter((e) => e.startsWith("audio.")).length} need attention`,
@@ -493,7 +856,10 @@ function audioEditor(p) {
   for (const s of clips(current.story)) {
     const c = current.clips[s.id],
       error = current.errors.find((e) => e.startsWith("audio." + s.id + ":"));
-    const block = el("div", "", { className: "clip" });
+    const block = markPath(
+      el("div", "", { className: "clip" }),
+      `audio.${s.id}`,
+    );
     append(
       block,
       el("h3", s.id),
@@ -504,29 +870,76 @@ function audioEditor(p) {
       }),
       upload(s.id),
     );
-    for (const provider of ["elevenlabs", "openai"])
+    const jobs = current.jobs.filter((j) => j.segmentId === s.id);
+    const blocked = jobs.some((j) =>
+      ["queued", "running", "uncertain"].includes(j.state),
+    );
+    if (blocked)
       block.append(
-        button(`Generate with ${provider}`, async () => {
-          if (
-            !confirm(
-              `Authorize paid ${provider} generation for this clip (${s.text.length} characters)?`,
-            )
-          )
-            return;
-          const key = crypto.randomUUID();
-          await api(`/stories/${current.id}/jobs`, {
-            revision: current.revision,
-            segmentId: s.id,
-            provider,
-            key,
-            authorizePaidGeneration: true,
-          });
-          await open(current.id);
-        }),
+        el(
+          "p",
+          "Generation is queued, running, or billing is uncertain. Refresh status; reconcile uncertain provider usage before authorizing another attempt.",
+        ),
       );
+    for (const provider of ["elevenlabs", "openai"]) {
+      const scope = `studio-generation:${user.id}:${current.id}:${current.revision}:${s.id}:${provider}`;
+      const generate = button(`Generate with ${provider}`, async () => {
+        requireSaved();
+        if (
+          !confirm(
+            `Authorize paid ${provider} generation for this clip (${(s.ttsText || s.text).length} characters)? A retry of this request uses the same attempt key.`,
+          )
+        )
+          return;
+        // Persist before dispatch: a lost response/reload must reuse the same key.
+        let key = sessionStorage.getItem(scope);
+        if (!key) {
+          key = crypto.randomUUID();
+          sessionStorage.setItem(scope, key);
+        }
+        notice.textContent = "Submitting generation request…";
+        await api(`/stories/${current.id}/jobs`, {
+          revision: current.revision,
+          segmentId: s.id,
+          provider,
+          key,
+          authorizePaidGeneration: true,
+        });
+        await open(current.id);
+        notice.textContent =
+          "Generation status refreshed. No provider call is retried automatically.";
+      });
+      generate.disabled = blocked;
+      block.append(generate);
+      if (
+        sessionStorage.getItem(scope) &&
+        jobs.some(
+          (j) =>
+            j.provider === provider &&
+            ["complete", "failed", "stale", "cancelled"].includes(j.state),
+        ) &&
+        !blocked
+      ) {
+        block.append(
+          button(`New ${provider} attempt`, () => {
+            requireSaved();
+            if (
+              confirm(
+                "Have you checked the previous result and provider usage? The next Generate action will authorize a new paid attempt.",
+              )
+            ) {
+              sessionStorage.removeItem(scope);
+              render();
+            }
+          }),
+        );
+      }
+    }
     if (c)
       block.append(
         button("Listen", async () => {
+          requireSaved();
+          stopPlayback();
           const t = await api(`/stories/${current.id}/clip-delivery`, {
             segmentId: s.id,
             revision: current.revision,
@@ -544,23 +957,41 @@ function audioEditor(p) {
       );
     p.append(block);
   }
-  p.append(button("Refresh queue", () => open(current.id)));
+  p.append(
+    button("Refresh queue", () => {
+      requireSaved();
+      return open(current.id);
+    }),
+  );
 }
 async function playSegments(list) {
+  stopPlayback();
+  const version = playbackVersion,
+    storyId = current.id,
+    manifest = previewManifest;
   for (const s of list) {
-    const a = previewManifest.audio[s.id];
-    const ticket = await api(`/stories/${current.id}/delivery`, {
+    if (version !== playbackVersion) return;
+    const a = manifest.audio[s.id];
+    const ticket = await api(`/stories/${storyId}/delivery`, {
       assetId: a.id,
-      revision: previewManifest.revision,
+      revision: manifest.revision,
     });
+    if (version !== playbackVersion) return;
     previewAudio.src = ticket.url;
     await new Promise((resolve, reject) => {
+      cancelPlayback = resolve;
       previewAudio.onended = resolve;
-      previewAudio.onerror = () => reject(new Error("Preview audio failed"));
+      previewAudio.onerror = () =>
+        reject(
+          new Error(
+            "Preview audio failed. Replay the scene to request a fresh delivery URL.",
+          ),
+        );
       previewAudio.play().catch(reject);
     });
   }
 }
+
 function preview(p) {
   append(
     p,
@@ -572,6 +1003,7 @@ function preview(p) {
     button(
       "Load preview",
       async () => {
+        requireSaved();
         previewManifest = await api(`/stories/${current.id}/preview`, {
           revision: current.revision,
         });
@@ -599,6 +1031,7 @@ function drawPreview(p) {
       playSegments(n.kind === "narration" ? n.segments : n.promptSegments),
     ),
     button("Pause", () => previewAudio.pause()),
+    button("Resume", () => previewAudio.play()),
   );
   if (n.kind === "choice") {
     for (const o of n.options)
@@ -614,17 +1047,19 @@ function drawPreview(p) {
     actions(
       n.nextNodeId
         ? button("Next scene", () => {
-            previewAudio.pause();
+            stopPlayback();
             previewNode = n.nextNodeId;
             drawPreview(p);
           })
         : el("p", "The end"),
       button("Restart preview", () => {
-        previewAudio.pause();
+        stopPlayback();
         previewNode = previewManifest.story.entryNodeId;
         drawPreview(p);
       }),
       button("Mark revision previewed", async () => {
+        requireSaved();
+        stopPlayback();
         await api(`/stories/${current.id}/previewed`, {
           revision: previewManifest.revision,
         });
@@ -639,11 +1074,12 @@ function catalog(p) {
     el("h2", "Catalog visibility"),
     el(
       "p",
-      "Visibility can change at any stage. Authoring and published releases keep the same story ID.",
+      "Visibility can change at any stage. Hidden removes discovery; withdrawal blocks new online playback. Previously downloaded MP3s remain playable.",
     ),
     actions(
       ...["hidden", "coming-soon", "available"].map((visibility) =>
         button(visibility, async () => {
+          requireSaved();
           await api(`/stories/${current.id}/visibility`, { visibility });
           await open(current.id);
         }),
@@ -654,6 +1090,7 @@ function catalog(p) {
         ? "Restore online access"
         : "Withdraw new online playback",
       async () => {
+        requireSaved();
         await api(`/stories/${current.id}/visibility`, {
           visibility: current.visibility,
           withdrawn: !current.withdrawn,
@@ -666,19 +1103,17 @@ function catalog(p) {
 function review(p) {
   append(p, el("h2", "Review & publish"));
   if (current.errors.length) {
-    current.errors.forEach((e) =>
-      p.append(
-        button(e, () => {
-          tab = e.startsWith("audio.") ? "Audio" : "Details";
-          render();
-        }),
-      ),
-    );
+    current.errors.forEach((e) => {
+      const link = button(e, () => locateError(e));
+      link.dataset.validation = "true";
+      p.append(link);
+    });
   } else p.append(el("p", "All clips are current and complete."));
   append(
     p,
     actions(
       button("Approve previewed revision", async () => {
+        requireSaved();
         await api(`/stories/${current.id}/review`, {
           revision: current.revision,
         });
@@ -687,6 +1122,7 @@ function review(p) {
       button(
         "Freeze release candidate",
         async () => {
+          requireSaved();
           await api(`/stories/${current.id}/releases`, {
             revision: current.revision,
           });
@@ -696,69 +1132,172 @@ function review(p) {
       ),
     ),
   );
+  p.append(
+    el(
+      "p",
+      `Preview ${current.preview?.revision === current.revision ? "acknowledged" : "required"} · Review ${current.review?.revision === current.revision ? "approved" : "required"}. Editing or uploading invalidates both.`,
+    ),
+  );
+  for (const control of p.querySelectorAll("button")) {
+    if (control.textContent === "Approve previewed revision")
+      control.disabled =
+        current.errors.length > 0 ||
+        current.preview?.revision !== current.revision;
+    if (control.textContent === "Freeze release candidate")
+      control.disabled =
+        current.errors.length > 0 ||
+        current.review?.revision !== current.revision;
+  }
   for (const m of current.releases) {
     const all = Object.values(m.audio).concat(m.artwork),
-      total = all.reduce((n, a) => n + a.bytes, 0),
+      total = [...new Map(all.map((a) => [a.id, a])).values()].reduce(
+        (n, a) => n + a.bytes,
+        0,
+      ),
       duration = Object.values(m.audio).reduce((n, a) => n + a.duration, 0);
     const b = box(
       el("h3", `Revision ${m.revision} · ${m.locale}`),
       el("p", m.releaseId, { className: "muted" }),
       el(
         "p",
-        `${bytes(total)} · ${Math.round(duration / 60)} minutes including both responses`,
+        current.active[m.locale] === m.releaseId
+          ? "Active release"
+          : "Retained release candidate",
+      ),
+      el(
+        "p",
+        `Title: ${m.story.title} · Locale: ${m.locale} · Episode: ${m.story.episode.title}`,
+      ),
+      el(
+        "p",
+        `Startup scene: ${m.story.entryNodeId} · ${bytes(startupBytes(m))} unique audio bytes`,
+      ),
+      el(
+        "p",
+        `${bytes(total)} · ${Math.floor(Math.round(duration) / 60)} min ${Math.round(duration) % 60} sec including both responses`,
       ),
       button(
         "Publish / roll back to this release",
         async () => {
+          requireSaved();
+          if (
+            !confirm(
+              `Activate revision ${m.revision} (${m.locale})? This makes the story available and restores online access. Existing releases are retained.`,
+            )
+          )
+            return;
           await api(`/releases/${m.releaseId}/activate`, {});
           await open(current.id);
         },
         true,
       ),
     );
-    let at = "",
-      timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let at = "";
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const scheduleStatus = el(
+      "p",
+      "Select a future time to see its exact UTC instant.",
+      { role: "status" },
+    );
     append(
       b,
       field(
-        "Schedule (local date and time)",
+        `Schedule date and time (${timeZone})`,
         "",
-        (v) => (at = v),
+        (v) => {
+          at = v;
+          try {
+            scheduleStatus.textContent =
+              scheduleInstant(at).toISOString() + ` · ${timeZone}`;
+          } catch (e) {
+            scheduleStatus.textContent = e.message;
+          }
+        },
         "datetime-local",
       ),
-      field("Time zone", timeZone, (v) => (timeZone = v)),
+      el(
+        "p",
+        `Time zone: ${timeZone} (browser zone). Change your system time zone to schedule in another zone. Ambiguous daylight-saving times are rejected.`,
+      ),
+      scheduleStatus,
       button("Schedule release", async () => {
-        if (timeZone !== Intl.DateTimeFormat().resolvedOptions().timeZone)
-          throw new Error(
-            "Use your browser time zone when selecting local time",
-          );
+        requireSaved();
+        const instant = scheduleInstant(at).toISOString();
+        const scope = `studio-schedule:${user.id}:${m.releaseId}:${instant}`;
+        let key = sessionStorage.getItem(scope);
+        if (!key) {
+          key = crypto.randomUUID();
+          sessionStorage.setItem(scope, key);
+        }
         await api(`/releases/${m.releaseId}/schedule`, {
-          at: new Date(at).toISOString(),
+          at: instant,
           timeZone,
-          key: at,
+          key,
         });
         await open(current.id);
       }),
     );
     p.append(b);
   }
-  for (const pub of current.publications)
+  for (const pub of current.publications) {
+    const data = typeof pub.data === "string" ? JSON.parse(pub.data) : pub.data;
     append(
       p,
       box(
         el(
           "p",
-          `${pub.state} · ${new Date(pub.due).toLocaleString()} · ${JSON.parse(pub.data).timeZone}`,
+          `${pub.state} · ${new Intl.DateTimeFormat(undefined, { timeZone: data.timeZone, dateStyle: "medium", timeStyle: "long" }).format(new Date(pub.due))} · ${data.timeZone}`,
         ),
-        pub.state === "scheduled"
-          ? button("Cancel schedule", async () => {
-              await api(`/publications/${pub.id}/cancel`, {});
-              await open(current.id);
-            })
-          : null,
+        el(
+          "p",
+          `UTC: ${new Date(pub.due).toISOString()} · Release: ${data.releaseId}`,
+        ),
+        data.error ? el("p", data.error, { className: "error" }) : null,
+        pub.state === "scheduled" &&
+          button("Cancel schedule", async () => {
+            requireSaved();
+            await api(`/publications/${pub.id}/cancel`, {});
+            // Cancellation allows a deliberate new schedule at the same instant.
+            sessionStorage.removeItem(
+              `studio-schedule:${user.id}:${data.releaseId}:${new Date(pub.due).toISOString()}`,
+            );
+            await open(current.id);
+          }),
       ),
     );
+  }
 }
+function startupBytes(m) {
+  const n = m.story.nodes[m.story.entryNodeId];
+  const ids =
+    n.kind === "choice"
+      ? m.choiceDependencies[n.id]
+      : n.segments.map((s) => s.id);
+  return [
+    ...new Map(ids.map((id) => [m.audio[id].id, m.audio[id]])).values(),
+  ].reduce((n, a) => n + a.bytes, 0);
+}
+function scheduleInstant(value) {
+  const date = new Date(value);
+  const local = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  if (!value || !Number.isFinite(date.getTime()))
+    throw new Error("Select a valid schedule date and time.");
+  if (local(date) !== value)
+    throw new Error(
+      "This local time does not exist because of a daylight-saving change.",
+    );
+  for (let offset = -180; offset <= 180; offset += 15) {
+    if (offset && local(new Date(date.getTime() + offset * 60000)) === value)
+      throw new Error(
+        "This local time is ambiguous because of a daylight-saving change. Select another time.",
+      );
+  }
+  if (date.getTime() <= Date.now())
+    throw new Error("Schedule must be in the future.");
+  return date;
+}
+
 start();
 
 function access(p) {
@@ -767,9 +1306,11 @@ function access(p) {
     p.append(el("p", "An administrator manages access and account roles."));
     return;
   }
+  const draft = current;
   run(async () => {
     const users = await api("/users");
-    let editors = new Set(current.editors);
+    if (current !== draft || !p.isConnected) return;
+    let editors = new Set(draft.editors);
     for (const u of users) {
       const row = box(el("h3", u.email));
       const toggle = el("input", "", {
@@ -801,7 +1342,8 @@ function access(p) {
       button(
         "Save story access",
         async () => {
-          await api(`/stories/${current.id}/access`, { editors: [...editors] });
+          requireSaved();
+          await api(`/stories/${draft.id}/access`, { editors: [...editors] });
           await open(current.id);
         },
         true,
