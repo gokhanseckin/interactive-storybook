@@ -254,3 +254,34 @@ audio {
     scroll-behavior: auto;
   }
 }
+
+/* Long immutable IDs and validation paths must fit small Studio screens. */
+.workspace > section,
+.panel,
+.book-row > div {
+  min-width: 0;
+}
+main,
+#notice {
+  overflow-wrap: anywhere;
+}
+button {
+  max-width: 100%;
+}
+#edit-status {
+  border-left: 3px solid var(--plum);
+  padding-left: 12px;
+}
+[data-path]:focus-within {
+  outline: 2px solid #b38528;
+  outline-offset: 4px;
+}
+@media (max-width: 760px) {
+  header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .panel {
+    padding: 16px;
+  }
+}
