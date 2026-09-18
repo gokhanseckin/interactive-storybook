@@ -14,6 +14,25 @@ import {
   OUTPUT_FORMAT,
 } from "../../audio-api/src/elevenlabs.ts";
 
+async function recoveryWindow(repo: Repository, state: "queued" | "running") {
+  const count =
+    (
+      await repo
+        .sql("SELECT count(*) AS count FROM jobs WHERE state=?", state)
+        .first<{ count: number }>()
+    )?.count ?? 0;
+  if (!count) return [];
+  const size = 10,
+    pages = Math.ceil(count / size),
+    page = Math.floor(Date.now() / 60000) % pages;
+  return repo.rows(
+    "SELECT id FROM jobs WHERE state=? ORDER BY id LIMIT ? OFFSET ?",
+    state,
+    size,
+    page * size,
+  );
+}
+
 export class NarrationWorkflow extends WorkflowEntrypoint<
   Env,
   { jobId: string }
@@ -103,17 +122,13 @@ export default {
     await repo.sql("DELETE FROM sessions WHERE expires<?", Date.now()).run();
     if (env.ENABLE_PAID_GENERATION !== "true") return;
     // The D1 job is the outbox; use its stable ID when recovering a failed Workflow create.
-    for (const row of await repo.rows(
-      "SELECT id FROM jobs WHERE state='queued' LIMIT 10",
-    )) {
+    for (const row of await recoveryWindow(repo, "queued")) {
       try {
         await env.GENERATION.create({ id: row.id, params: { jobId: row.id } });
       } catch {}
     }
     // Only terminal Workflow failure may mark a billing claim uncertain. Never steal live work.
-    for (const row of await repo.rows(
-      "SELECT id FROM jobs WHERE state='running' LIMIT 10",
-    )) {
+    for (const row of await recoveryWindow(repo, "running")) {
       const instance = await env.GENERATION.get(row.id),
         state = await instance.status();
       if (["errored", "terminated", "complete"].includes(state.status))
