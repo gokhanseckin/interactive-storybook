@@ -29,16 +29,21 @@ export async function handle(request: Request, env: Env): Promise<Response> {
   try {
     if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32)
       throw new HttpError(503, "Server secret not configured");
+    const repo = new Repository(env.DB, new R2Media(env.MEDIA));
+    const bearer = request.headers
+        .get("Authorization")
+        ?.match(/^Bearer ([^\s]+)$/)?.[1],
+      cookie = request.headers
+        .get("Cookie")
+        ?.match(/(?:^|;\s*)studio=([^;]+)/)?.[1],
+      token = bearer || cookie,
+      origin = request.headers.get("Origin");
     if (
       !["GET", "HEAD", "OPTIONS"].includes(method) &&
-      request.headers.has("Origin") &&
-      request.headers.get("Origin") !== env.ORIGIN
+      ((origin && origin !== env.ORIGIN) ||
+        (!bearer && cookie && origin !== env.ORIGIN))
     )
       throw new HttpError(403, "Origin denied");
-    const repo = new Repository(env.DB, new R2Media(env.MEDIA));
-    const token =
-      request.headers.get("Authorization")?.replace(/^Bearer /, "") ||
-      request.headers.get("Cookie")?.match(/(?:^|;\s*)studio=([^;]+)/)?.[1];
     const actor = async (): Promise<Actor> => {
       if (!token) throw new HttpError(401, "Sign in required");
       const row = await repo
@@ -91,7 +96,9 @@ export async function handle(request: Request, env: Env): Promise<Response> {
         })
         .parse(await body());
       // Durable per-IP limiter. Hash IP; do not log it or any child activity.
-      const key = tokenHash(request.headers.get("CF-Connecting-IP") ?? "local");
+      const key = createHmac("sha256", env.SESSION_SECRET)
+        .update(request.headers.get("CF-Connecting-IP") ?? "local")
+        .digest("hex");
       const now = Date.now();
       const attempt = await repo
         .sql(
@@ -219,7 +226,7 @@ export async function handle(request: Request, env: Env): Promise<Response> {
         if (d.revision !== rev) throw new HttpError(409, "Revision changed");
         if (segmentId ? type !== "audio/mpeg" : type === "audio/mpeg")
           throw new HttpError(400, "Select the matching media destination");
-        const asset = await repo.media.put(await boundedBody(request), type);
+        const asset = await repo.media.ingest(request, type);
         await repo.recordAsset(asset);
         return json(
           await repo.change(
@@ -310,7 +317,8 @@ export async function handle(request: Request, env: Env): Promise<Response> {
       if (action === "access") {
         requireRole(a, "admin");
         const editors = z.array(z.string()).parse(b.editors);
-        for (const user of editors) await repo.user(user);
+        for (const user of editors)
+          requireRole(await repo.user(user), "creator");
         return json(
           await repo.change(a, id, undefined, "story.access", (d) => {
             d.editors = editors;
@@ -424,6 +432,10 @@ export async function handle(request: Request, env: Env): Promise<Response> {
       requireRole(a, "publisher");
       await repo.commit([
         repo.actorGuard(a),
+        repo.guard(
+          "EXISTS(SELECT 1 FROM publications WHERE id=? AND state='scheduled')",
+          cancel[1],
+        ),
         repo.sql(
           "UPDATE publications SET state='cancelled' WHERE id=? AND state='scheduled'",
           cancel[1],
@@ -514,6 +526,7 @@ export async function handle(request: Request, env: Env): Promise<Response> {
         throw new HttpError(409, "Cannot remove your own admin role");
       await repo.commit([
         repo.actorGuard(a),
+        repo.guard("EXISTS(SELECT 1 FROM users WHERE id=?)", roles[1]),
         repo.sql(
           "UPDATE users SET roles=? WHERE id=?",
           JSON.stringify(values),
@@ -542,6 +555,15 @@ export async function handle(request: Request, env: Env): Promise<Response> {
         400,
       );
     if (e instanceof SyntaxError) return json({ error: "Invalid JSON" }, 400);
+    if (!(e instanceof HttpError))
+      console.error(
+        JSON.stringify({
+          message: "Unhandled request failure",
+          method,
+          path,
+          error: e instanceof Error ? e.message : String(e),
+        }),
+      );
     return json(
       { error: e instanceof HttpError ? e.message : "Request failed" },
       e instanceof HttpError ? e.statusCode : 500,

@@ -348,6 +348,11 @@ it("serves Studio API authorization, CSRF, login and fail-closed paid generation
   });
   expect(login.status).toBe(200);
   const b = (await login.json()) as { token: string };
+  const cookieOnly = await mf.dispatchFetch("http://localhost/api/logout", {
+    method: "POST",
+    headers: { Cookie: `studio=${b.token}` },
+  });
+  expect(cookieOnly.status).toBe(403);
   const d = await repo.create(creator, fixture());
   const response = await mf.dispatchFetch(
     `http://localhost/api/stories/${d.id}/jobs`,
@@ -426,8 +431,8 @@ it("runs the existing Studio authoring contract through the Worker HTTP routes",
       body: mp3,
     },
   );
-  expect(upload.status).toBe(200);
   d = (await upload.json()) as Record<string, any>;
+  expect(upload.status, JSON.stringify(d)).toBe(200);
   const clip = await call(`/api/stories/${d.id}/clip-delivery`, creator, {
     revision: d.revision,
     segmentId: "intro",
@@ -466,6 +471,33 @@ it("rejects expired URLs and corrupt uploads without changing the active release
   expect((await mf.dispatchFetch(expired)).status).toBe(403);
   expect((await repo.get(m.storyId)).active[m.locale]).toBe(m.releaseId);
 });
+it("streams and fully validates uploads larger than the former 10 MiB buffer", async () => {
+  const tagSize =
+      10 +
+      ((mp3[6] << 21) | (mp3[7] << 14) | (mp3[8] << 7) | mp3[9]) +
+      (mp3[5] & 16 ? 10 : 0),
+    frames = mp3.subarray(tagSize),
+    copies = Math.ceil((11 * 1024 * 1024) / frames.length),
+    large = Buffer.concat(Array.from({ length: copies }, () => frames)),
+    before = performance.now(),
+    asset = await repo.media.ingest(
+      new Request("http://localhost/upload", {
+        method: "POST",
+        headers: { "Content-Type": "audio/mpeg" },
+        body: large,
+      }),
+      "audio/mpeg",
+    ),
+    elapsed = performance.now() - before;
+  expect(asset.bytes).toBe(large.length);
+  expect(asset.bytes).toBeGreaterThan(10 * 1024 * 1024);
+  expect(asset.duration).toBeGreaterThan(0);
+  expect(elapsed).toBeLessThan(30000);
+  expect(
+    (await repo.media.bucket.list({ prefix: "_ingest/" })).objects,
+  ).toEqual([]);
+  await repo.media.bucket.delete(asset.id);
+}, 30000);
 it("executes a real local Workflow with generation disabled and no provider request", async () => {
   const bindings = await mf.getBindings<{
     GENERATION: Workflow<{ jobId: string }>;
