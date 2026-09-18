@@ -11,8 +11,8 @@ import {
   type Asset,
   type Manifest,
 } from "@story/contracts";
-import { Store } from "./store.ts";
-import { Media } from "./media.ts";
+import type { Store } from "./store.ts";
+import type { Media } from "./media.ts";
 import { HttpError, requireRole, type Actor } from "./auth.ts";
 export type Draft = {
   id: string;
@@ -176,22 +176,9 @@ export class Platform {
       ? this.store.one("SELECT data FROM assets WHERE id=?", d.card.cover)
       : null;
     if (d.card.cover && !cover) throw new HttpError(409, "Cover is missing");
-    return ManifestSchema.parse({
-      schemaVersion: 1,
-      playerVersion: 1,
-      storyId: d.id,
-      releaseId,
-      locale: d.story.language,
-      revision: d.revision,
-      story: d.story,
-      audio: Object.fromEntries(
-        segments(d.story).map((s) => [s.id, d.clips[s.id].asset]),
-      ),
-      artwork: cover ? [JSON.parse(cover.data)] : [],
-      choiceDependencies: choiceDependencies(d.story),
-      createdAt: new Date().toISOString(),
-    });
+    return buildManifest(d, releaseId, cover ? JSON.parse(cover.data) : null);
   }
+
   async preview(actor: Actor, id: string, revision: number) {
     const d = this.get(id);
     this.read(actor, d);
@@ -321,4 +308,26 @@ export class Platform {
     });
     return job;
   }
+}
+
+export function buildManifest(
+  d: Draft,
+  releaseId: string,
+  cover: Asset | null,
+): Manifest {
+  return ManifestSchema.parse({
+    schemaVersion: 1,
+    playerVersion: 1,
+    storyId: d.id,
+    releaseId,
+    locale: d.story.language,
+    revision: d.revision,
+    story: d.story,
+    audio: Object.fromEntries(
+      segments(d.story).map((s) => [s.id, d.clips[s.id].asset]),
+    ),
+    artwork: cover ? [cover] : [],
+    choiceDependencies: choiceDependencies(d.story),
+    createdAt: new Date().toISOString(),
+  });
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BackHandler, Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { DeliveryLab } from "./src/screens/DeliveryLab";
 import { LibraryScreen } from "./src/screens/LibraryScreen";
 import { StoryPlayerScreen } from "./src/screens/StoryPlayerScreen";
 import { sampleStory } from "./src/domain/sampleStory";
@@ -57,7 +58,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style={listening ? "light" : "dark"} />
-      {listening ? (
+      {__DEV__ && process.env.EXPO_PUBLIC_DELIVERY_LAB_AUTORUN === "shared" ? (
+        <DeliveryLab />
+      ) : listening ? (
         <StoryPlayerScreen
           key={listening.context.releaseId}
           story={listening.story}

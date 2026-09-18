@@ -38,9 +38,9 @@ existing work and reconcile any newer changes; do not restart from the old asses
 The user favors Cloudflare and asked about free tiers. Recommended target architecture:
 Workers Static Assets + Workers API + D1 metadata + private R2 media + Workflows generation
 and a scheduled Worker for publication. Pages remains possible, but Cloudflare's current
-recommendation for new projects is Workers Static Assets. This architecture is not yet
-implemented: the backend currently uses Fastify, synchronous `node:sqlite`, filesystem
-media, and an interval-driven worker process.
+recommendation for new projects is Workers Static Assets. The original backend uses Fastify, synchronous `node:sqlite`, filesystem media and an
+interval-driven worker. A separate local Worker adaptation now reuses its contracts and
+validation with D1/R2/Workflows; see `docs/cloudflare-adaptation.md`. It has not been deployed.
 
 The Cloudflare API MCP authenticated successfully on retry. Read-only list calls returned
 HTTP 200 for Workers (2 scripts), D1 (0 databases), R2 (1 bucket), Workflows (0), and Pages
@@ -55,16 +55,30 @@ actual Cloudflare runtime behavior and choose an appropriate implementation. R2 
 can incur charges; external narration providers are billed separately. Recheck current
 limits/pricing before making provisioning decisions.
 
+## Continuation implemented (2026-09-18)
+
+- Local Worker Static Assets/API + D1 + private R2 + Workflows implementation is now
+  available under `services/cloudflare`; all generation flags are off. Local migration,
+  account setup, dry-run build and 11 integration tests passed.
+- Opt-in shared native playback passed the iOS simulator byte-reuse lab: start after
+  2,413 ms / 130,723 bytes; a 2,726,391-byte verified MP3 transferred exactly once and
+  played locally with seek to 120.93 seconds. It remains opt-in pending device gates.
+- Total automated suite: 70 tests; root/Worker/mobile TypeScript and both native builds
+  passed. See the verification document for precise evidence and corrected failures.
+
 ## Remaining implementation and acceptance
 
-1. If continuing with Cloudflare, adapt and test the server storage/runtime boundaries.
+1. Cloudflare local adaptation and 11 integration tests are implemented. Continue hosted
+   qualification and cloud import/backup/restore, with authorization before provisioning.
    Preserve atomic publication, optimistic revision checks, role enforcement and immutable
    release retention when replacing SQLite callbacks with D1 operations. Preserve paid-job
    idempotency/uncertain-billing handling when introducing durable execution; no blind retry
    of provider calls. Replace disk media with R2 and preserve authenticated preview and range
    delivery. Separate staging and production data/secrets. Benchmark large-file handling.
-2. Implement/reconcile shared streaming/download byte reuse. Current AVPlayer/ExoPlayer
-   buffers are not durable files; streamed bytes may be downloaded again for offline use.
+2. Shared-byte native loopback playback is implemented behind
+   `EXPO_PUBLIC_SHARED_AUDIO_CACHE=1`; the default remains direct streaming. Continue
+   physical/Android runtime, background handoff and slow seek-ahead acceptance. See latest
+   measured simulator evidence in the verification doc, including failures fixed during this work.
 3. Finish physical iOS and Android acceptance: constrained networks, URL expiry/reissue,
    interrupted choices, seeking, suspension/process death/force quit, corrupted/missing
    files, storage pressure, release updates and offline restart. A build is not a device test.
@@ -81,8 +95,8 @@ limits/pricing before making provisioning decisions.
 - Android SDK: `/opt/homebrew/share/android-commandlinetools`. A fresh Gradle process
   (`--no-daemon`) avoided an old daemon's Node-runtime failure. No Android device was attached.
 - A paired physical iPhone required its passcode; device checks remained pending.
-- Xcode began requiring local license acceptance after the successful builds. The user must
-  review/accept the license themselves if still required. Do not accept legal terms for them.
+- Xcode 27.0 was available again during this continuation, and simulator builds passed.
+  No license was accepted by the agent. The physical phone still reports passcodeRequired=true.
   `/Library/Developer/CommandLineTools/usr/bin/git` remained usable for Git operations.
 - Generated iOS/Android projects and native module build outputs are ignored. Use the committed
   prebuild plugin to preserve the Xcode script fix for spaces in this repository path.

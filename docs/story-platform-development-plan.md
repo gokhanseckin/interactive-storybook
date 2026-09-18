@@ -30,6 +30,20 @@ Checks below distinguish implementation from unperformed device/operational acce
 - [x] Phase 7: reproducible development fixtures and automated invariants/failure tests.
 - [x] Phase 7: checksum-verified database/media backup and isolated restore rehearsal.
 - [ ] Phase 7: device matrix, hosted staging/CDN and release acceptance.
+- [x] Cloudflare: local Workers Static Assets/API, D1 guarded atomic batches, private
+  checksum-verified R2 delivery and fenced Workflows implementation; 11 local integration tests.
+- [x] Cloudflare: connection rechecked read-only for Workers, D1, R2, Workflows and Pages.
+- [x] Cloudflare: isolated binding templates and local migration/account commands verified;
+  all environment configurations disable paid generation.
+- [ ] Cloudflare: hosted staging, CPU/memory/free-allowance qualification, large uploads,
+  cloud backup/restore rehearsal and production rollout (not authorized).
+- [x] Mobile: opt-in shared native writer/loopback playback implementation on iOS/Android,
+  completed-prefix recovery and native-completion adoption after JS observer failure.
+- [ ] Mobile: shared-cache physical lifecycle and Android runtime acceptance; keep
+  `EXPO_PUBLIC_SHARED_AUDIO_CACHE` off for rollout until these gates pass.
+
+
+Cloudflare implementation and local commands: [runtime adaptation](cloudflare-adaptation.md).
 
 First vertical flow is covered by `services/content-api/src/platform.test.ts`.
 Mobile transport and queue wiring are in `apps/mobile/src/delivery`; native sources in

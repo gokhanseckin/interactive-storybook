@@ -6,9 +6,11 @@ export type TransferSpec = {
   url: string;
   wifiOnly: boolean;
   urgent: boolean;
+  progressive?: boolean;
 };
 type Native = {
   root(): Promise<string>;
+  playbackUrl(id: string): Promise<string>;
   unconstrainedWifi(): Promise<boolean>;
   enqueue(json: string): Promise<void>;
   transferStatus(id: string): Promise<{
@@ -31,6 +33,7 @@ function module(): Native {
 }
 export default {
   root: () => module().root(),
+  playbackUrl: (id: string) => module().playbackUrl(id),
   unconstrainedWifi: () =>
     native ? native.unconstrainedWifi() : Promise.resolve(false),
   enqueue: (spec: TransferSpec) => module().enqueue(JSON.stringify(spec)),

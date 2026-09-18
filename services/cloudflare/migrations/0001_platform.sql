@@ -1,0 +1,21 @@
+PRAGMA foreign_keys=ON;
+CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, roles TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),expires INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS stories(id TEXT PRIMARY KEY, owner TEXT REFERENCES users(id), revision INTEGER NOT NULL, data TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS releases(id TEXT PRIMARY KEY, story_id TEXT REFERENCES stories(id), data TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS published_releases(id TEXT PRIMARY KEY REFERENCES releases(id));
+      CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, story_id TEXT REFERENCES stories(id), key TEXT UNIQUE NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS publications(id TEXT PRIMARY KEY, story_id TEXT REFERENCES stories(id), state TEXT NOT NULL, due INTEGER NOT NULL, data TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS audit(id TEXT PRIMARY KEY, at TEXT NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, subject TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS assets(id TEXT PRIMARY KEY, data TEXT NOT NULL, created INTEGER NOT NULL);
+      CREATE TRIGGER IF NOT EXISTS immutable_release BEFORE UPDATE ON releases BEGIN SELECT RAISE(ABORT,'immutable release'); END;
+      CREATE TRIGGER IF NOT EXISTS retained_release BEFORE DELETE ON releases BEGIN SELECT RAISE(ABORT,'retain historical release'); END;
+-- A failed predicate aborts the entire D1 batch, including its audit writes.
+CREATE TABLE transaction_guards (id TEXT PRIMARY KEY, ok INTEGER NOT NULL CHECK(ok=1));
+CREATE UNIQUE INDEX release_revision ON releases(story_id,json_extract(data,'$.revision'));
+CREATE UNIQUE INDEX active_generation ON jobs(story_id,json_extract(data,'$.segmentId'),json_extract(data,'$.fingerprint')) WHERE state IN ('queued','running');
+CREATE INDEX due_publications ON publications(state,due);
+CREATE INDEX story_jobs ON jobs(story_id,state);
+CREATE INDEX story_releases ON releases(story_id);
+CREATE INDEX user_sessions ON sessions(user_id);
+CREATE TABLE login_attempts (id TEXT PRIMARY KEY, count INTEGER NOT NULL, until INTEGER NOT NULL);

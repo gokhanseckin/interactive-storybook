@@ -142,3 +142,24 @@ describe("durable prioritized downloads", () => {
     expect(await queue.local(asset(1))).toBeNull();
   });
 });
+
+it("adopts a native completion after the JavaScript observer failed, without redownloading", async () => {
+  const { queue, adapter, calls, files } = setup();
+  const m = manifest("native-complete");
+  queue.add(m);
+  const a = Object.values(m.audio)[0],
+    t = queue.state.transfers[a.id];
+  t.state = "failed";
+  t.error = "observer interrupted";
+  files.add(a.id);
+  adapter.recover = async (asset) =>
+    files.has(asset.id) ? "file:///" + asset.id : null;
+  expect(await queue.local(a)).toBe("file:///" + a.id);
+  expect(t.state).toBe("verified");
+  expect(t.error).toBeUndefined();
+  expect(calls).toEqual([]);
+  t.state = "queued";
+  delete t.local;
+  await queue.reconcile();
+  expect(t.state).toBe("verified");
+});

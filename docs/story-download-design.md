@@ -136,3 +136,24 @@ cache eviction, pinned persistence, and a release update during a session.
   https://developer.android.com/training/data-storage/app-specific
 - Apple background transfer behavior, including force quit:
   https://developer.apple.com/documentation/foundation/urlsessionconfiguration/background(withidentifier:)
+
+## Shared-byte implementation (2026-09-18)
+
+An opt-in native implementation is available with `EXPO_PUBLIC_SHARED_AUDIO_CACHE=1`.
+The normal direct-streaming path remains the default until device acceptance passes.
+In the shared path, expo-audio reads a loopback-only capability URL. The local server
+reads the same sequential partial file being written by the native transfer; it never
+makes an independent origin request. A completed transfer is SHA-256 verified and
+atomically promoted to the same content-addressed file used for offline packages.
+
+Android uses the existing WorkManager writer. iOS uses a foreground URLSession data
+task while streaming; background handoff cancels that writer, preserves its prefix,
+and requests only the remaining HTTP range through background URLSession. Reissued
+URLs retain the stable asset ID/If-Range validator. Failed whole-file checksums delete
+corrupt prefixes. Pinned/download queue observers adopt the same writer.
+
+A seek beyond the downloaded prefix currently waits for sequential bytes. It does not
+map seconds to byte offsets or fetch duplicate ranges. Slow seek-ahead, suspension and
+physical process-death acceptance remain rollout gates. The opt-in adapter must not be
+silently replaced with a second direct network stream on error. The parent can retry;
+verified local media and listening progress remain available.

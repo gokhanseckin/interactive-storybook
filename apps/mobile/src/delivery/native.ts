@@ -54,6 +54,10 @@ export function downloads(): Promise<DownloadQueue> {
         );
       },
       exists: verified,
+      async recover(asset) {
+        const path = root + asset.id + "." + extension(asset);
+        return (await verified(asset, path)) ? path : null;
+      },
       async retain(ids) {
         generation++;
         allowed = new Set(ids);
@@ -100,6 +104,10 @@ export function downloads(): Promise<DownloadQueue> {
             url: ticket.url,
             wifiOnly: t.wifiOnly,
             urgent: t.urgent,
+            progressive:
+              sharedPlaybackEnabled &&
+              t.urgent &&
+              t.asset.type === "audio/mpeg",
           };
           specs.set(t.asset.id, spec);
           submitted.add(t.asset.id);
@@ -132,6 +140,10 @@ export function downloads(): Promise<DownloadQueue> {
             url: ticket.url,
             wifiOnly: prior?.wifiOnly ?? true,
             urgent: prior?.urgent ?? false,
+            progressive:
+              sharedPlaybackEnabled &&
+              (prior?.urgent ?? false) &&
+              asset.type === "audio/mpeg",
           };
           specs.set(asset.id, spec);
           await NativeStorage.enqueue(spec);
@@ -204,4 +216,27 @@ export function downloads(): Promise<DownloadQueue> {
     setInterval(() => void queue.pump().catch(() => {}), 2000);
     return queue;
   })());
+}
+
+// Opt-in while physical-device acceptance remains open. Uses the same native transfer,
+// durable prefix, content-addressed final file and checksum verification as offline downloads.
+export const sharedPlaybackEnabled =
+  process.env.EXPO_PUBLIC_SHARED_AUDIO_CACHE === "1";
+export async function sharedPlayback(
+  asset: Asset,
+  manifest: import("@story/contracts").Manifest,
+) {
+  if ((await FS.getFreeDiskStorageAsync()) < asset.bytes * 2 + 20 * 1024 * 1024)
+    throw new Error("Not enough storage. Remove downloads or clear cache.");
+  const ticket = await delivery(manifest, asset.id);
+  await NativeStorage.enqueue({
+    id: asset.id,
+    bytes: asset.bytes,
+    extension: extension(asset),
+    url: ticket.url,
+    wifiOnly: false,
+    urgent: true,
+    progressive: true,
+  });
+  return NativeStorage.playbackUrl(asset.id);
 }

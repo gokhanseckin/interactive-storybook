@@ -26,6 +26,10 @@ class StoryStorageModule : Module() {
     manager.enqueueUniqueWork("story-$id",ExistingWorkPolicy.KEEP,work)
    }
   }
+  AsyncFunction("playbackUrl") { id:String ->
+   require(Regex("^[a-f0-9]{64}$").matches(id))
+   SharedPlayback.get(requireNotNull(appContext.reactContext)).url(id)
+  }
   AsyncFunction("transferStatus") { id:String ->
    val json=JSONObject(StoryDownloadWorker.prefs(requireNotNull(appContext.reactContext)).getString(id,"{\"state\":\"missing\"}") ?: "{}")
    json.keys().asSequence().associateWith { json.get(it) }

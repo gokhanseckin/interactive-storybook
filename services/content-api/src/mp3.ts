@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { HttpError } from "./auth.ts";
 // Validate complete MPEG layer III frames, including VBR. No seconds→bytes approximation.
 export function validateMp3Frames(data: Buffer) {

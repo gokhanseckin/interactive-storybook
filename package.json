@@ -14,7 +14,13 @@
     "studio:user": "node --import tsx services/content-api/src/user.ts",
     "seed": "node --env-file-if-exists=services/content-api/.env --import tsx services/content-api/src/seed.ts",
     "backup": "node --import tsx services/content-api/src/backup.ts",
-    "restore": "node --import tsx services/content-api/src/restore.ts"
+    "restore": "node --import tsx services/content-api/src/restore.ts",
+    "cloudflare:check": "tsc --noEmit -p services/cloudflare/tsconfig.json",
+    "cloudflare:build": "WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --env= --config services/cloudflare/wrangler.jsonc --outdir dist",
+    "cloudflare:test": "npm run cloudflare:build && vitest run services/cloudflare",
+    "cloudflare:dev": "wrangler dev --local --config services/cloudflare/wrangler.jsonc",
+    "cloudflare:migrate": "wrangler d1 migrations apply DB --local --config services/cloudflare/wrangler.jsonc",
+    "cloudflare:user": "node --import tsx services/cloudflare/scripts/local-user.ts"
   },
   "dependencies": {
     "@story/contracts": "*",
@@ -24,10 +30,12 @@
   },
   "devDependencies": {
     "@types/node": "^26.5.1",
+    "miniflare": "^5.20260917.0-alpha",
     "prettier": "^3.9.7",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "wrangler": "^4.134.0"
   },
   "engines": {
     "node": ">=22.13"

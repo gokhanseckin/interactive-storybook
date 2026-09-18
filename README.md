@@ -223,3 +223,15 @@ before starting a restored worker. Run one content-service worker per environmen
 
 Native acceptance evidence and remaining shipping gates are maintained in
 [Story platform verification](docs/verification/story-platform.md).
+
+### Cloudflare preparation
+
+The existing Studio/mobile API now also has a local Workers + D1 + private R2 +
+Workflows implementation. See [Cloudflare adaptation](docs/cloudflare-adaptation.md)
+for local migration, account provisioning, tests, environment isolation and remaining
+hosted acceptance gates. All checked-in environments disable paid generation; no
+cloud resources have been provisioned or deployed.
+
+The native shared-byte playback experiment is opt-in via
+`EXPO_PUBLIC_SHARED_AUDIO_CACHE=1`. See [delivery design](docs/story-download-design.md)
+and [verification evidence](docs/verification/story-platform.md) before enabling it.

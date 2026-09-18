@@ -1,0 +1,31 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "story-platform-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": { "directory": "../../apps/studio/public", "binding": "ASSETS", "run_worker_first": ["/api/*", "/media/*"] },
+  "vars": { "ENVIRONMENT": "local", "ORIGIN": "http://localhost:8787", "ENABLE_PAID_GENERATION": "false" },
+  "d1_databases": [{ "binding": "DB", "database_name": "story-platform-local", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "story-media-local" }],
+  "workflows": [{ "binding": "GENERATION", "name": "story-generation-local", "class_name": "NarrationWorkflow" }],
+  "triggers": { "crons": ["* * * * *"] },
+  "env": {
+    "staging": {
+      "name": "story-platform-staging",
+      "vars": { "ENVIRONMENT": "staging", "ORIGIN": "https://staging.invalid", "ENABLE_PAID_GENERATION": "false" },
+      "d1_databases": [{ "binding": "DB", "database_name": "story-platform-staging", "database_id": "00000000-0000-0000-0000-000000000001", "migrations_dir": "migrations" }],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "story-media-staging-unprovisioned" }],
+      "workflows": [{ "binding": "GENERATION", "name": "story-generation-staging", "class_name": "NarrationWorkflow" }]
+    },
+    "production": {
+      "name": "story-platform-production",
+      "vars": { "ENVIRONMENT": "production", "ORIGIN": "https://production.invalid", "ENABLE_PAID_GENERATION": "false" },
+      "d1_databases": [{ "binding": "DB", "database_name": "story-platform-production", "database_id": "00000000-0000-0000-0000-000000000002", "migrations_dir": "migrations" }],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "story-media-production-unprovisioned" }],
+      "workflows": [{ "binding": "GENERATION", "name": "story-generation-production", "class_name": "NarrationWorkflow" }]
+    }
+  }
+}

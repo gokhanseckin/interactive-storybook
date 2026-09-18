@@ -13,6 +13,12 @@ public class StoryStorageModule: Module {
         }
       }
     }
+    AsyncFunction("playbackUrl") { (id: String) -> String in
+      guard id.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
+        throw NSError(domain: "StoryTransfer", code: 1)
+      }
+      return SharedPlayback.shared.url(id)
+    }
     AsyncFunction("transferStatus") { (id: String) -> [String: Any] in
       NativeTransfers.shared.status(id)
     }
@@ -44,6 +50,9 @@ public class StoryStorageModule: Module {
 }
 
 public class StoryTransferSubscriber: ExpoAppDelegateSubscriber {
+  public func applicationDidEnterBackground(_ application: UIApplication) {
+    NativeTransfers.shared.handoffToBackground()
+  }
   public func application(
     _ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
     completionHandler: @escaping () -> Void

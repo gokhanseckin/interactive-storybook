@@ -45,6 +45,7 @@ export interface TransferAdapter {
     signal: AbortSignal,
   ): Promise<string>;
   exists(asset: Asset, path: string): Promise<boolean>;
+  recover?(asset: Asset): Promise<string | null>;
   remove(id: string): Promise<void>;
   freeSpace(): Promise<number>;
 }
@@ -83,6 +84,14 @@ export class DownloadQueue {
   }
   async reconcile() {
     for (const t of Object.values(this.state.transfers)) {
+      const recovered = await this.adapter.recover?.(t.asset);
+      if (recovered) {
+        t.local = recovered;
+        t.state = "verified";
+        t.bytes = t.asset.bytes;
+        delete t.error;
+        continue;
+      }
       if (
         t.state === "verified" &&
         (!t.local || !(await this.adapter.exists(t.asset, t.local)))
@@ -236,6 +245,17 @@ export class DownloadQueue {
   }
   async local(asset: Asset) {
     const t = this.state.transfers[asset.id];
+    if (t && t.state !== "verified") {
+      const recovered = await this.adapter.recover?.(asset);
+      if (recovered) {
+        t.local = recovered;
+        t.state = "verified";
+        t.bytes = asset.bytes;
+        delete t.error;
+        this.changed();
+        return recovered;
+      }
+    }
     if (t?.state === "verified" && t.local) {
       if (await this.adapter.exists(asset, t.local)) return t.local;
       t.state = "queued";
@@ -365,6 +385,8 @@ export class DownloadQueue {
             delete next.error;
           })
           .catch((e) => {
+            // A native completion may have been recovered while this observer was stopping.
+            if (next.state === "verified") return;
             next.state = c.signal.aborted
               ? "queued"
               : next.attempts < 3

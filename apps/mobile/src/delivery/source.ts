@@ -1,6 +1,6 @@
 import type { AudioSource } from "expo-audio";
 import { assets, type Manifest, type Story } from "@story/contracts";
-import { downloads } from "./native";
+import { downloads, sharedPlayback, sharedPlaybackEnabled } from "./native";
 import { delivery } from "./client";
 import { getAudioSource } from "../audio/audioAssets";
 export type PlaybackContext = {
@@ -46,7 +46,13 @@ export async function source(
           : [];
   const ids = (deps ?? []).map((id) => m.audio[id].id);
   const local = await queue.local(asset);
-  queue.select(m, local ? undefined : asset.id, ids);
+  queue.select(
+    m,
+    local || sharedPlaybackEnabled ? undefined : asset.id,
+    !local && sharedPlaybackEnabled && node.kind !== "choice"
+      ? [asset.id, ...ids]
+      : ids,
+  );
   if (node.kind === "choice") {
     // The prompt itself is gated, along with guidance, BOTH responses and continuation.
     queue.streaming = null;
@@ -56,5 +62,12 @@ export async function source(
     return { uri: ready };
   }
   if (local) return { uri: local };
+  if (sharedPlaybackEnabled) {
+    const uri = await sharedPlayback(asset, m);
+    if (signal?.aborted) throw new Error("Preparation cancelled");
+    // Native enqueue adopts this same writer, so pinning cannot start a second fetch.
+    queue.select(m, undefined, [asset.id, ...ids]);
+    return { uri };
+  }
   return { uri: (await delivery(m, asset.id)).url };
 }
