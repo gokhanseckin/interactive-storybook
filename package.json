@@ -18,9 +18,13 @@
     "cloudflare:check": "tsc --noEmit -p services/cloudflare/tsconfig.json",
     "cloudflare:build": "WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --env= --config services/cloudflare/wrangler.jsonc --outdir dist",
     "cloudflare:test": "npm run cloudflare:build && vitest run services/cloudflare",
+    "cloudflare:data": "node --import tsx services/cloudflare/scripts/data-operations.ts",
+    "cloudflare:data:test": "vitest run services/cloudflare/scripts/data-operations.test.ts",
     "cloudflare:dev": "wrangler dev --local --config services/cloudflare/wrangler.jsonc",
     "cloudflare:migrate": "wrangler d1 migrations apply DB --local --config services/cloudflare/wrangler.jsonc",
-    "cloudflare:user": "node --import tsx services/cloudflare/scripts/local-user.ts"
+    "cloudflare:user": "node --import tsx services/cloudflare/scripts/local-user.ts",
+    "studio:acceptance": "node --import tsx apps/studio/tests/acceptance.mts",
+    "studio:check": "node --check apps/studio/public/studio.js"
   },
   "dependencies": {
     "@story/contracts": "*",
@@ -31,6 +35,7 @@
   "devDependencies": {
     "@types/node": "^26.5.1",
     "miniflare": "^5.20260917.0-alpha",
+    "playwright": "1.63.0",
     "prettier": "^3.9.7",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",

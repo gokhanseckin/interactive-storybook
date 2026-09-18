@@ -3,6 +3,42 @@
 Base: `ab7e2d7876a93581a9f6cfe898a75afeeeb17edd` (`origin/main`, fetched before editing).
 Branch: `codex/story-studio-mobile-audio`. Updated 2026-09-18.
 
+## Integration-owner lane reconciliation (2026-09-18)
+
+Four reviewed lane commits were cherry-picked locally without merging PRs #11-#14. The
+fifth branch, `codex/mobile-player-voice`, was already on PR #10 and had no separate draft PR.
+Central integration added pinned Playwright/React hook test dependencies, root Studio and
+Cloudflare data-operation commands, and the Worker-aligned 99,999,999-byte Studio upload cap.
+
+Fresh evidence on the combined tree:
+
+- **120 unique automated tests passed:** 12 shared contracts/Fastify backend, 12 Worker
+  runtime, 3 Cloudflare data operations, 87 mobile (including 3 real React-hook lifecycle
+  regressions by default), and 6 audio API. Root, Worker, mobile and audio TypeScript pass.
+- Wrangler dry-run passed at 2,167.93 KiB raw / 360.39 KiB gzip. Latest retrieved Workers
+  types were `5.20260918.1`; no used R2/D1/Workflow signature differed from generated types.
+- **14 real-Chromium Studio groups passed**, with one mocked provider invocation and no real
+  provider call. Independent agent-browser smoke found meaningful content, expected login
+  controls, no framework overlay and no page errors.
+- Full Android debug APK passed (398 Gradle tasks, SDK 36) and full Expo iOS simulator build
+  passed (Xcode 27, 110-target graph). The standalone Swift transport harness also built.
+- Dedicated iPhone 17 / iOS 26.5 simulator transport matrix passed clean/pause/policy,
+  ignored/malformed ranges, corruption, interruption, process restart, real background
+  handoff, slow streaming and verified offline file playback. Slow 32 KiB/s start was
+  **2,412 ms / 81,920 bytes**; completion used exactly **2,726,391 origin bytes**. Slow
+  background handoff completed with 2,734,583 response bytes, including one 8 KiB
+  cancellation chunk, then recovered verified local playback without another media request.
+- Layered local author → review → immutable publish → catalog → signed delivery → native
+  stream/download → offline playback passed across the Studio, Worker, mobile and simulator
+  suites. This is contract-linked local evidence, not one hosted deployment or a physical pass.
+
+Unavailable/unperformed in this integration run: hosted deployment/profiling, remote D1/R2
+backup/restore, real provider billing/reconciliation, physical shared-cache lifecycle,
+Android runtime (ADB listed no devices and no emulator binary was installed), full Expo app
+runtime lifecycle, physical microphone denial/locale/interruption checks, real radio/storage
+pressure, and the prior iPhone Home/lock silent-response retest. Shared caching remains off by
+default and child speech remains entirely on-device.
+
 Main already contained the library/detail UI, timeline fixes, ElevenLabs adapter and
 six approved narration files. Implementation reuses those. No paid generation,
 production deployment, merge, or external infrastructure provisioning was performed.
@@ -138,8 +174,9 @@ skipped the draft PR. Existing implementation and narration were reused.
   CPU/memory/free-tier qualification. Root, Worker and mobile TypeScript checks pass.
 - Combined suites: **70 tests passed** (12 contracts/backend, 11 Cloudflare,
   41 mobile, 6 audio API). Use `npm run cloudflare:test` in addition to baseline commands.
-- The Worker cap is 10 MiB per inspected upload; no password strength or MP3 validation
-  was reduced. Cloud import/backup/restore and large-file hosted benchmarking remain open.
+- The Worker now streams and fully validates uploads through 99,999,999 bytes; no password
+  strength or MP3 validation was reduced. Local D1/R2 backup/restore passes; remote cloud
+  rehearsal and hosted large-file benchmarking remain open.
 
 ### Native changes and limits
 

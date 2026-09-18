@@ -558,6 +558,7 @@ function details(p) {
   markPath(p.querySelector('input[type="file"]'), "card.cover");
 }
 function upload(segmentId) {
+  const maxUploadBytes = 99_999_999;
   const input = el("input", "", {
     type: "file",
     accept: segmentId ? "audio/mpeg" : ".png,.jpg,.jpeg",
@@ -569,6 +570,10 @@ function upload(segmentId) {
       const f = input.files[0];
       input.value = "";
       if (!f) return;
+      if (f.size > maxUploadBytes)
+        throw new Error(
+          "File exceeds the 99,999,999-byte hosted upload limit. Choose a smaller MP3 or image.",
+        );
       const url = `/api/stories/${current.id}/assets?revision=${current.revision}${segmentId ? "&segmentId=" + encodeURIComponent(segmentId) : ""}`;
       notice.textContent = `Uploading ${f.name} and validating media…`;
       await request(url, {

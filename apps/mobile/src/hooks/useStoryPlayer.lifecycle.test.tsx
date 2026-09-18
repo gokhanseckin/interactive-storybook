@@ -3,7 +3,7 @@ import React from "react";
 import { sampleStory } from "../domain/sampleStory";
 import { createInitialPlayerState } from "../domain/playerMachine";
 
-// Optional integration harness: see the lane report for the external test-only runtime.
+// Integration harness uses the pinned test-only renderer from mobile devDependencies.
 // No native recording, storage, network or device-acceptance claims are made here.
 const native = vi.hoisted(() => ({
   status: {
@@ -87,8 +87,8 @@ function Harness() {
   api = useStoryPlayer(sampleStory, context);
   return null;
 }
-const runtimePath = process.env.STORY_REACT_TEST_RENDERER;
-describe.skipIf(!runtimePath)(
+const runtimePath = process.env.STORY_REACT_TEST_RENDERER || "react-test-renderer";
+describe(
   "actual React hook lifecycle with fake native events",
   () => {
     let renderer: any, act: any, tree: any;

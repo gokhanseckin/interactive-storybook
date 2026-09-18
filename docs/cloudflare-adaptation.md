@@ -25,6 +25,11 @@ same Studio and mobile API contracts with D1 metadata and private R2 objects.
   write access restricted to verified ingestion; out-of-band replacement is unsupported.
   Signed delivery rechecks release publication/withdrawal or the preview revision,
   supports HEAD, single byte ranges, suffixes, If-Range and byte-preserving streaming.
+- Uploads stream through bounded 5 MiB private multipart staging up to 99,999,999 bytes.
+  The Worker hashes every byte, validates complete MP3 frame structure in bounded slices,
+  rereads and rehashes staged content before content-addressed promotion, and deletes normal
+  staging objects on success/failure. A conservative orphan reconciliation procedure remains
+  necessary for isolate termination after multipart completion.
 - Paid generation is **disabled** in every checked-in environment. If later authorized,
   the request also requires the explicit generation checkbox. A unique active-job index
   deduplicates concurrent requests; the D1 row is the Workflow outbox and Workflow ID.
@@ -32,9 +37,13 @@ same Studio and mobile API contracts with D1 metadata and private R2 objects.
   the provider call, and replay of running/uncertain work never resubmits it. Terminal
   failed Workflows with running claims become uncertain; only metadata CAS retries occur
   after a provider result. Late results cannot replace changed text or an attached clip.
-- Login attempts live in D1, keyed by a hash of the connecting IP. Existing scrypt
+- Login attempts live in D1, keyed by an HMAC of the connecting IP. Existing scrypt
   strength is preserved. Studio cookies remain HttpOnly/SameSite=Strict and use Secure
-  outside local development. Static asset headers preserve the existing CSP.
+  outside local development; cookie mutations require the exact configured Origin. Static
+  headers deny base/form injection, disable unused sensitive permissions and enable HSTS.
+- Local data operations export checksum-sealed D1/private-R2 bundles and restore only into
+  new isolated targets. Sessions/throttles are omitted; scheduled/queued work is held and
+  running generation becomes uncertain without losing idempotency/provenance.
 
 ## Local commands
 
@@ -57,6 +66,9 @@ always uses `--local` and revokes prior sessions. It does not contact D1 remotel
 ```sh
 npm run cloudflare:check
 npm run cloudflare:test
+npm run cloudflare:data:test
+# npm run cloudflare:data -- backup|verify|restore ...
+npm run studio:acceptance
 ```
 
 The test command builds with `wrangler deploy --dry-run`, then runs actual local
@@ -74,10 +86,10 @@ are capped. There is no paid plan setting, public R2 bucket, remote local bindin
 provider key in the configuration. Free allowance suitability is not yet demonstrated.
 
 Preserving scrypt and full-file MP3 inspection takes precedence over meeting a free CPU
-budget. Worker uploads currently have a **10 MiB** bound, including bodies without
-Content-Length; the local Fastify service retains its existing 100 MB limit. Workerd
-functional tests do not establish hosted CPU or memory usage. Hosted profiling, large
-file throughput, D1 row/read/write usage and real R2 billing need a staging decision.
+budget. Worker uploads now stream up to **99,999,999 bytes**, including bodies without
+Content-Length; an 11,578,140-byte MP3 passed local workerd validation. Workerd functional
+tests do not establish hosted CPU or memory usage. Hosted profiling, large-file throughput,
+D1 row/read/write usage and real R2 billing need a staging decision.
 Do not advertise a guaranteed zero-cost service from these local checks.
 
 Still pending before hosted rollout:
@@ -86,10 +98,10 @@ Still pending before hosted rollout:
   authorization is separate. Never reuse unrelated account resources.
 - Actual resource IDs/domains/secrets, hosted CPU/memory/latency measurements, CDN/native
   acceptance and an explicit cost decision if free allowances do not fit.
-- D1/R2 data import/export plus a cloud restore rehearsal. Existing SQLite backup/restore
-  commands are not D1/R2 backup tools. Cloud orphan cleanup is deliberately unavailable;
-  historical releases/media remain retained. No deletion lifecycle policy is configured.
-- Larger upload inspection strategy and operational pagination/retention tuning at scale.
+- Remote D1/R2 export/import plus a cloud restore rehearsal. Local D1/R2 and legacy
+  SQLite/filesystem migration/restore are implemented; remote mode is deliberately absent.
+  Cloud orphan cleanup is deliberately unavailable; historical releases/media remain retained.
+- Hosted large-upload qualification and operational pagination/retention tuning at scale.
 - Explicit paid-run authorization and provider reconciliation rehearsal with real billing.
 
 Read-only Cloudflare MCP checks on 2026-09-18 returned HTTP 200 for Workers, D1, R2,

@@ -57,28 +57,43 @@ limits/pricing before making provisioning decisions.
 
 ## Continuation implemented (2026-09-18)
 
-- Local Worker Static Assets/API + D1 + private R2 + Workflows implementation is now
-  available under `services/cloudflare`; all generation flags are off. Local migration,
-  account setup, dry-run build and 11 integration tests passed.
-- Opt-in shared native playback passed the iOS simulator byte-reuse lab: start after
-  2,413 ms / 130,723 bytes; a 2,726,391-byte verified MP3 transferred exactly once and
-  played locally with seek to 120.93 seconds. It remains opt-in pending device gates.
-- Total automated suite: 70 tests; root/Worker/mobile TypeScript and both native builds
-  passed. See the verification document for precise evidence and corrected failures.
+- Four draft lane commits were reviewed and cherry-picked locally without merging their
+  GitHub PRs: Studio acceptance, mobile delivery reliability, Cloudflare local data
+  operations and Cloudflare runtime hardening. The fifth lane, `mobile-player-voice`, was
+  already present on PR #10 and has no separate draft PR.
+- Local Worker Static Assets/API + D1 + private R2 + Workflows now uses bounded multipart
+  staging, full MP3 frame inspection, checksum-verified promotion, guarded D1 publication,
+  exact-Origin cookie mutation checks and billing-fenced generation. Paid generation is off.
+- Local-only D1/private-R2 backup, legacy migration, bundle verification and replay-safe
+  isolated restore preserve IDs, permissions, immutable releases and generation keys while
+  holding scheduled/queued work and marking running work uncertain.
+- Studio lost-response/conflict/permission/DST/publication safeguards are covered by 14
+  real-Chromium acceptance groups. Playwright 1.63.0 and root commands are centrally pinned.
+- Fresh integrated suites passed: 120 unique automated tests (12 contracts/backend,
+  12 Worker runtime, 3 data operations, 87 mobile, 6 audio API), 14 Studio browser groups,
+  and root/Worker/mobile/audio TypeScript. Wrangler dry-run was 2,167.93 KiB raw /
+  360.39 KiB gzip. No provider request was made.
+- Full Android Debug APK and full Expo iOS simulator builds passed. The standalone native
+  Swift harness also built. The dedicated iOS 26.5 simulator matrix passed progressive,
+  range/fault, pause/resume, process-restart, background and offline playback cases. At
+  32 KiB/s playback started after 2,412 ms / 81,920 bytes and completed with exactly
+  2,726,391 origin bytes. Shared caching remains opt-in.
+- The complete product story is verified locally across layered boundaries: Studio and
+  Worker HTTP author/review/publish/catalog/delivery suites feed the same shared manifest
+  contract exercised by mobile queue/source tests and native stream/download/offline runtime.
+  This is not a single hosted deployment or physical-device pass.
 
 ## Remaining implementation and acceptance
 
-1. Cloudflare local adaptation and 11 integration tests are implemented. Continue hosted
-   qualification and cloud import/backup/restore, with authorization before provisioning.
-   Preserve atomic publication, optimistic revision checks, role enforcement and immutable
-   release retention when replacing SQLite callbacks with D1 operations. Preserve paid-job
-   idempotency/uncertain-billing handling when introducing durable execution; no blind retry
-   of provider calls. Replace disk media with R2 and preserve authenticated preview and range
-   delivery. Separate staging and production data/secrets. Benchmark large-file handling.
+1. Cloudflare local adaptation, 12 runtime tests and 3 local data-operation tests are
+   implemented. Continue hosted qualification and remote D1/R2 backup/restore only with
+   authorization. Preserve exact `scheduled`/`queued` selectors, inert restored work,
+   atomic publication, immutable/retained releases, SHA-256 R2 keys and paid-job fences.
+   Benchmark the 99,999,999-byte ingestion path under hosted CPU/memory limits.
 2. Shared-byte native loopback playback is implemented behind
    `EXPO_PUBLIC_SHARED_AUDIO_CACHE=1`; the default remains direct streaming. Continue
-   physical/Android runtime, background handoff and slow seek-ahead acceptance. See latest
-   measured simulator evidence in the verification doc, including failures fixed during this work.
+   physical/full-Expo/Android runtime and interactive slow seek-ahead acceptance. Standalone
+   iOS simulator background handoff and slow sequential tail reads now pass.
 3. Finish physical iOS and Android acceptance: constrained networks, URL expiry/reissue,
    interrupted choices, seeking, suspension/process death/force quit, corrupted/missing
    files, storage pressure, release updates and offline restart. A build is not a device test.
@@ -94,7 +109,9 @@ limits/pricing before making provisioning decisions.
 - Node 22 was used: `/Users/gokhanseckin/.nvm/versions/node/v22.22.2/bin`.
 - Android SDK: `/opt/homebrew/share/android-commandlinetools`. A fresh Gradle process
   (`--no-daemon`) avoided an old daemon's Node-runtime failure. No Android device was attached.
-- A paired physical iPhone required its passcode; device checks remained pending.
+- No physical device was used in the integration run. A prior player/voice lane recorded
+  user-observed iPhone airplane-mode speech/playback, but its Home/lock response retest remains
+  pending and is not evidence for the shared-cache path.
 - Xcode 27.0 was available again during this continuation, and simulator builds passed.
   No license was accepted by the agent. The physical phone still reports passcodeRequired=true.
   `/Library/Developer/CommandLineTools/usr/bin/git` remained usable for Git operations.
@@ -105,7 +122,6 @@ limits/pricing before making provisioning decisions.
 
 ## Authorization boundaries
 
-The user authorized committing/pushing this work and opening a PR, but not merging it or
-production deployment. Ask only for genuinely missing credentials, consequential product
-choices or paid infrastructure/generation authorization. Continue unaffected work while
-waiting. Do not interpret a successful MCP read as permission to enable paid subscriptions.
+This continuation is limited to PR #10. Do not merge it or any lane PR, deploy, provision
+paid infrastructure, run paid generation or enable the shared cache by default. Ask only for
+genuinely missing credentials, consequential product choices or explicit rollout authority.
