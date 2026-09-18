@@ -1,0 +1,35 @@
+{
+  "name": "story-platform",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "services/content-api",
+    "apps/studio"
+  ],
+  "scripts": {
+    "test": "vitest run packages services/content-api",
+    "typecheck": "tsc --noEmit",
+    "dev": "node --env-file-if-exists=services/content-api/.env --import tsx services/content-api/src/server.ts",
+    "studio:user": "node --import tsx services/content-api/src/user.ts",
+    "seed": "node --env-file-if-exists=services/content-api/.env --import tsx services/content-api/src/seed.ts",
+    "backup": "node --import tsx services/content-api/src/backup.ts",
+    "restore": "node --import tsx services/content-api/src/restore.ts"
+  },
+  "dependencies": {
+    "@story/contracts": "*",
+    "fastify": "^5.12.4",
+    "music-metadata": "^11.10.0",
+    "zod": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "prettier": "^3.9.7",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

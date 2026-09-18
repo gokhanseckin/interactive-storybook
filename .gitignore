@@ -13,3 +13,6 @@ dist/
 /content/calarin-ardindaki-gizli-bahce/audiobook-preview/*.mp3
 /content/calarin-ardindaki-gizli-bahce/audiobook-preview-common-only/*.mp3
 /content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/*.mp3
+
+# Private content, accounts, sessions, generated delivery media
+.data/
