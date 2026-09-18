@@ -174,3 +174,52 @@ run entirely on-device. The mobile bundle contains no provider credentials.
 
 The OpenAI preview generator and prompt helpers are retained only as historical
 comparison tools; active API, batch generation, and live TTS checks use ElevenLabs.
+
+## Story Studio and remote books
+
+Use Node 22.13 or later. Install root dependencies with `npm ci`, and mobile dependencies
+with `npm ci --prefix apps/mobile`. Copy `services/content-api/.env.example` to
+`services/content-api/.env`, replace `SESSION_SECRET` with a random 32+ character secret,
+and provision a local account:
+
+```sh
+STUDIO_PASSWORD='choose-a-long-local-password' npm run studio:user -- author@example.com creator,publisher
+npm run dev
+```
+
+Open http://localhost:4400 for Story Studio. The content service serves Studio from the
+same origin. Password hashes and sessions are stored only in the private DATA_DIR.
+Create a draft, save card details, import/edit scenes, upload each MP3, preview the exact
+revision, mark it previewed, approve it with a publisher account, freeze a release and
+publish. A placeholder is optional. Repeat editing creates a successor draft; active
+releases do not change. Generation buttons require explicit paid authorization; provider
+keys are never exposed to Studio/mobile. Failed/uncertain provider requests are not
+silently retried. An operator can create an admin account with the same user command.
+
+`npm run seed` imports existing approved private recordings into a development catalog
+without generating audio. Those six MP3s must already exist in the documented private
+asset location. Fixture books are labeled as development content. `APP_ENV=staging` with
+its own DATA_DIR and SESSION_SECRET creates an isolated local staging instance; this
+does not deploy anything. `npm run backup -- /new/backup/directory` snapshots SQLite and
+copies immutable media. Published assets are retained across rollback and withdrawal.
+
+Set `EXPO_PUBLIC_CONTENT_API_URL` in `apps/mobile/.env` to the content service URL reachable
+from your simulator/device. Set service PUBLIC_ORIGIN to that same URL so delivery URLs
+resolve correctly. Remote catalog refresh downloads metadata, not the books. A selected
+book streams narration progressively and prepares both options before offering a choice.
+The welcome story remains bundled for first launch offline. Offline downloads require a
+new native build (`npm run ios --prefix apps/mobile` or Android equivalent) for StoryStorage.
+
+Run `npm test`, `npm run typecheck`, plus `npm test --prefix apps/mobile` and
+`npm run typecheck --prefix apps/mobile`. See
+[implementation evidence and open acceptance gates](docs/verification/story-platform.md).
+Do not ship until the native and hosted-environment gates recorded there have passed.
+
+Restore rehearsal: stop authoring/generation/media cleanup while taking the database-plus-media
+backup, then run `npm run restore -- /backup/directory /new/restore/directory`. This verifies
+database integrity, release manifests and all media checksums, refuses an existing destination,
+and revokes copied sessions. It does not start a server. Review pending publication schedules
+before starting a restored worker. Run one content-service worker per environment.
+
+Native acceptance evidence and remaining shipping gates are maintained in
+[Story platform verification](docs/verification/story-platform.md).

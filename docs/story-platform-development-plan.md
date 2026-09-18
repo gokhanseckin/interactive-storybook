@@ -2,7 +2,38 @@
 
 Date: 2026-09-17
 
-Status: Ready for implementation planning; no features implemented by this document
+Status: Implementation in progress on `codex/story-studio-mobile-audio`; native and hosted-environment acceptance gates remain open.
+
+## Implementation checklist (2026-09-18)
+
+Evidence: [implementation and device verification](verification/story-platform.md).
+Checks below distinguish implementation from unperformed device/operational acceptance.
+
+- [x] Inspect current main and reconcile library UI, timeline and existing ElevenLabs work.
+- [x] Phase 0: shared schemas, graph validation, release/asset/catalog contracts.
+- [x] Phase 0: local stack, environment isolation and byte-range delivery implementation.
+- [ ] Phase 0: real iOS/Android baseline and coordinated native stream/download cache.
+- [x] Phase 1: sessions, roles/ownership, revisions, uploads, measured MP3 metadata,
+  content-addressed private media, generation jobs, stale results, catalog/delivery APIs.
+- [x] Phase 2: authenticated Studio, library filters, details, JSON/scene/choice editing,
+  per-clip audio, interactive preview, independent catalog controls, validation feedback.
+- [x] Phase 3: exact-revision review, immutable candidates, atomic activation, schedules,
+  cancellation, history/rollback, withdrawal and media retention.
+- [x] Phase 4: cached catalog, one bundled welcome, local-first/progressive source resolver,
+  release/locale progress keys and explicit legacy mapping.
+- [x] Phase 5: persisted prioritized bounded queue, choice dependencies, constrained-network
+  policy, file checksum verification, retry and progress-preserving source errors.
+- [ ] Phase 5: native process-death reconciliation and stream/download byte reuse acceptance.
+- [x] Phase 6: explicit complete packages, pinning, native backup-excluded storage,
+  parent controls, shared references, low-space rejection and cache eviction policy.
+- [ ] Phase 6: real-device airplane-mode/restart, force quit, corruption and storage pressure.
+- [x] Phase 7: reproducible development fixtures and automated invariants/failure tests.
+- [x] Phase 7: checksum-verified database/media backup and isolated restore rehearsal.
+- [ ] Phase 7: device matrix, hosted staging/CDN and release acceptance.
+
+First vertical flow is covered by `services/content-api/src/platform.test.ts`.
+Mobile transport and queue wiring are in `apps/mobile/src/delivery`; native sources in
+`apps/mobile/modules/story-storage`. No production deployment or merge is authorized.
 
 ## 1. Agreed product scope
 
@@ -29,7 +60,9 @@ are engineering starting points to validate, not fixed product promises.
 
 ## 2. Existing foundation and gaps
 
-The repository currently has an Expo SDK 57 mobile player, validated JSON story
+Original PR #9 assessment (historical; superseded by the implementation checklist):
+
+The repository at that assessment had an Expo SDK 57 mobile player, validated JSON story
 graphs, bundled MP3/WAV assets, local progress, and a Fastify/OpenAI audio service.
 The player uses expo-audio with downloadFirst enabled and a bundled source map.
 There is no remote catalog, Studio, creator authentication, release database,

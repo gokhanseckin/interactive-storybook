@@ -16,3 +16,7 @@ dist/
 
 # Private content, accounts, sessions, generated delivery media
 .data/
+
+# Generated native module outputs
+/apps/mobile/modules/*/android/build/
+/apps/mobile/modules/*/android/.gradle/

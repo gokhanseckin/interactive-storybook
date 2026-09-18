@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   BackHandler,
+  AppState,
+  Alert,
   ImageBackground,
   Modal,
   Platform,
@@ -12,6 +14,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { catalog, manifest, API } from "../delivery/client";
+import { downloads } from "../delivery/native";
+import { sampleStory } from "../domain/sampleStory";
+import { DownloadsScreen } from "./DownloadsScreen";
+import type { Manifest } from "@story/contracts";
+
 const colors = {
   paper: "#F5F3FA",
   ink: "#302640",
@@ -22,29 +30,30 @@ const colors = {
   yellow: "#F6D98B",
 };
 const serif = Platform.OS === "ios" ? "Georgia" : "serif";
-const books = [
-  {
-    id: "garden",
-    title: "Çalıların Ardındaki\nGizli Bahçe",
-    age: "8–10 yaş",
-    genre: "Gizem ve keşif",
-    available: true,
-    plot: "Çalıların arasında kaybolan bir top, hiç fark etmediğin bir patikayı ortaya çıkarır. Mila, Lara, Talha ve Neva ile konuşan bir karganın peşine düş; güneş, ay ve yıldızın sırrını keşfet.",
-    names: "Mila, Lara, Talha ve Neva",
-    caption: "Küçük bir patika. Kocaman bir sır.",
-  },
-  {
-    id: "kite",
-    title: "Rüzgârın Sakladığı\nUçurtma",
-    age: "6–8 yaş",
-    genre: "Dostluk ve macera",
-    available: false,
-    plot: "Bir rüzgâr, kırmızı uçurtmayı eski bir duvarın ardına taşır. Mila ve arkadaşları, yaprakların fısıltısını dinleyerek beklenmedik bir maceraya doğru yola çıkar.",
-    names: "Mila, Lara, Talha ve Neva",
-    caption: "Rüzgârın peşinde bir macera.",
-  },
-];
-type Book = (typeof books)[number];
+type Book = {
+  id: string;
+  title: string;
+  age: string;
+  genre: string;
+  available: boolean;
+  plot: string;
+  names: string;
+  caption: string;
+  releaseId?: string;
+  locale: string;
+  cover?: string;
+};
+const welcome: Book = {
+  id: sampleStory.id,
+  title: sampleStory.title,
+  age: "6–8 yaş",
+  genre: "Kısa karşılama masalı",
+  available: true,
+  plot: "Mila ve arkadaşlarıyla gümüş yaprağı bul. İki yolu da keşfedebileceğin kısa bir karşılama masalı.",
+  names: "Mila, Lara, Talha ve Neva",
+  caption: "İnternetsiz dinlenebilen kısa bir macera.",
+  locale: "tr-TR",
+};
 
 function BookCover({ book, large = false }: { book: Book; large?: boolean }) {
   const contents = (
@@ -68,9 +77,11 @@ function BookCover({ book, large = false }: { book: Book; large?: boolean }) {
     >
       <ImageBackground
         source={
-          book.id === "garden"
-            ? require("../../assets/covers/hidden-garden.png")
-            : require("../../assets/covers/hidden-kite.png")
+          book.cover
+            ? { uri: book.cover }
+            : book.id !== sampleStory.id
+              ? require("../../assets/covers/hidden-garden.png")
+              : require("../../assets/covers/hidden-kite.png")
         }
         style={s.coverImage}
       >
@@ -80,8 +91,76 @@ function BookCover({ book, large = false }: { book: Book; large?: boolean }) {
   );
 }
 
-export function LibraryScreen({ onListen }: { onListen: () => void }) {
+export function LibraryScreen({
+  onListen,
+  onPreview,
+}: {
+  onPreview?: (m: Manifest) => void;
+  onListen: (storyId: string, releaseId?: string, locale?: string) => void;
+}) {
   const [book, setBook] = useState<Book | null>(null);
+  const [books, setBooks] = useState<Book[]>([welcome]);
+  const [showDownloads, setShowDownloads] = useState(false);
+  const [detail, setDetail] = useState<Manifest | null>(null);
+  const [detailError, setDetailError] = useState("");
+  useEffect(() => {
+    let mounted = true;
+    const refresh = () =>
+      catalog().then((entries) => {
+        if (!mounted) return;
+        setBooks([
+          welcome,
+          ...entries.flatMap((e) => {
+            const locales = Object.keys(e.releases);
+            return (locales.length ? locales : ["tr-TR"]).map((locale) => ({
+              id: e.id,
+              title: e.card.title,
+              age: e.card.ageBand.replace("-", "–") + " yaş",
+              genre: locale,
+              available: e.visibility === "available",
+              plot: e.card.description,
+              names: "",
+              caption:
+                e.visibility === "coming-soon"
+                  ? "Yeni maceramız hazırlanıyor"
+                  : e.card.description,
+              releaseId: e.releases[locale],
+              locale,
+              cover: e.card.cover
+                ? API + "/api/covers/" + e.card.cover
+                : undefined,
+            }));
+          }),
+        ]);
+      });
+    void refresh();
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") void refresh();
+    });
+    return () => {
+      mounted = false;
+      sub.remove();
+    };
+  }, []);
+  useEffect(() => {
+    setDetail(null);
+    setDetailError("");
+    let mounted = true;
+    if (book?.releaseId)
+      manifest(book.releaseId)
+        .then((m) => {
+          if (mounted) setDetail(m);
+        })
+        .catch(() => {
+          if (mounted)
+            setDetailError(
+              "Bu sürüm açılamadı. Bağlantıyı kontrol edin veya uygulamayı güncelleyin.",
+            );
+        });
+    return () => {
+      mounted = false;
+    };
+  }, [book]);
   const [premium, setPremium] = useState(false);
   const [filter, setFilter] = useState("Tümü");
   useEffect(() => {
@@ -101,6 +180,13 @@ export function LibraryScreen({ onListen }: { onListen: () => void }) {
     );
     return () => subscription.remove();
   }, [book, premium]);
+  if (showDownloads)
+    return (
+      <DownloadsScreen
+        onPreview={onPreview}
+        onBack={() => setShowDownloads(false)}
+      />
+    );
   const visible =
     filter === "Tümü" ? books : books.filter((item) => item.age === filter);
   return (
@@ -133,14 +219,48 @@ export function LibraryScreen({ onListen }: { onListen: () => void }) {
               <Fact value={book.age} label="Dinleyici yaşı" />
               <View style={s.factDivider} />
               <Fact
-                value={book.available ? "5 dakika" : "Yakında"}
-                label={book.available ? "İlk iki bölüm" : "Yeni masal"}
+                value={
+                  detail
+                    ? `${Math.ceil(Object.values(detail.audio).reduce((n, a) => n + a.duration, 0) / 60)} dakika`
+                    : book.id === welcome.id
+                      ? "1 dakika"
+                      : "Yakında"
+                }
+                label={book.available ? "Sesli macera" : "Yeni masal"}
               />
               <View style={s.factDivider} />
-              <Fact value="Türkçe" label="Sesli masal" />
+              <Fact value={book.locale} label="Sesli masal" />
             </View>
             <Text style={s.sectionTitle}>Seni neler bekliyor?</Text>
             <Text style={s.plot}>{book.plot}</Text>
+            {!!detailError && <Text style={s.note}>{detailError}</Text>}
+            {detail && (
+              <Pressable
+                accessibilityRole="button"
+                style={s.customButton}
+                onPress={() =>
+                  downloads()
+                    .then((q) => {
+                      q.add(detail, true);
+                      Alert.alert(
+                        "İndirme eklendi",
+                        `${(Object.values(detail.audio).reduce((n, a) => n + a.bytes, 0) / 1048576).toFixed(1)} MB. Wi-Fi dışında indirme iznini depolama ekranından değiştirebilirsiniz.`,
+                      );
+                    })
+                    .catch((e) => Alert.alert("İndirme", e.message))
+                }
+              >
+                <Text style={s.customButtonText}>
+                  Çevrimdışı dinlemek için indir
+                </Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={s.customButton}
+              onPress={() => setShowDownloads(true)}
+            >
+              <Text style={s.customButtonText}>İndirilenler ve depolama</Text>
+            </Pressable>
             {book.available && (
               <Text style={s.note}>
                 Bu kısa macerada bir seçim senin. İki farklı yoldan aynı keşfe
@@ -180,9 +300,9 @@ export function LibraryScreen({ onListen }: { onListen: () => void }) {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              disabled={!book.available}
+              disabled={!book.available || (!!book.releaseId && !detail)}
               accessibilityState={{ disabled: !book.available }}
-              onPress={onListen}
+              onPress={() => onListen(book.id, book.releaseId, book.locale)}
               style={[
                 s.listenButton,
                 !book.available && { backgroundColor: "#ACA4B6" },
@@ -217,8 +337,8 @@ export function LibraryScreen({ onListen }: { onListen: () => void }) {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Premium planını incele"
-                onPress={() => setPremium(true)}
+                accessibilityLabel="İndirilenler ve depolama"
+                onPress={() => setShowDownloads(true)}
                 style={s.profile}
               >
                 <Text style={s.profileIcon}>E</Text>
@@ -232,7 +352,7 @@ export function LibraryScreen({ onListen }: { onListen: () => void }) {
             </Text>
             <View style={s.libraryHeading}>
               <Text style={s.sectionTitle}>Masal kitaplığın</Text>
-              <Text style={s.count}>2 masal</Text>
+              <Text style={s.count}>{books.length} masal</Text>
             </View>
             <View style={s.filters}>
               {["Tümü", "6–8 yaş", "8–10 yaş"].map((value) => (
@@ -257,7 +377,7 @@ export function LibraryScreen({ onListen }: { onListen: () => void }) {
             <View style={s.books}>
               {visible.map((item) => (
                 <Pressable
-                  key={item.id}
+                  key={item.id + item.locale}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.title.replace("\n", " ")}, ${item.age}, ${item.available ? "ücretsiz dinle" : "yakında"}. Detayları aç.`}
                   onPress={() => setBook(item)}
@@ -457,7 +577,7 @@ const s = StyleSheet.create({
   filterActive: { backgroundColor: colors.ink, borderColor: colors.ink },
   filterText: { fontSize: 13, color: colors.muted },
   filterTextActive: { color: "#FFFFFF", fontWeight: "600" },
-  books: { flexDirection: "row", gap: 18 },
+  books: { flexDirection: "row", flexWrap: "wrap", gap: 18 },
   bookCard: { width: "47.4%" },
   cover: {
     aspectRatio: 0.66,
