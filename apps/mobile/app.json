@@ -11,8 +11,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.masalyolu.spike",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Ses tanıma yalnızca cihazda çalışır ve masal seçimini anlamak için kullanılır.",
-        "NSMicrophoneUsageDescription": "Masal seçimlerini cihazda anlamak için mikrofon erişimine izin ver.",
+        "NSSpeechRecognitionUsageDescription": "Ses tan\u0131ma yaln\u0131zca cihazda \u00e7al\u0131\u015f\u0131r ve masal se\u00e7imini anlamak i\u00e7in kullan\u0131l\u0131r.",
+        "NSMicrophoneUsageDescription": "Masal se\u00e7imlerini cihazda anlamak i\u00e7in mikrofon eri\u015fimine izin ver.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -37,7 +37,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Masal seçimlerini sesinle yapabilmen için mikrofon erişimine izin ver.",
+          "microphonePermission": "Masal se\u00e7imlerini sesinle yapabilmen i\u00e7in mikrofon eri\u015fimine izin ver.",
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false
         }
@@ -45,14 +45,15 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Masal seçimlerini cihazda anlamak için mikrofon erişimine izin ver.",
-          "speechRecognitionPermission": "Ses tanıma yalnızca cihazda çalışır ve masal seçimini anlamak için kullanılır.",
+          "microphonePermission": "Masal se\u00e7imlerini cihazda anlamak i\u00e7in mikrofon eri\u015fimine izin ver.",
+          "speechRecognitionPermission": "Ses tan\u0131ma yaln\u0131zca cihazda \u00e7al\u0131\u015f\u0131r ve masal se\u00e7imini anlamak i\u00e7in kullan\u0131l\u0131r.",
           "androidSpeechServicePackages": [
             "com.google.android.as",
             "com.google.android.googlequicksearchbox"
           ]
         }
-      ]
+      ],
+      "./plugins/withQuotedBundleScript"
     ],
     "extra": {
       "eas": {

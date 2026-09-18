@@ -2,7 +2,80 @@
 
 Date: 2026-09-17
 
-Status: Ready for implementation planning; no features implemented by this document
+Status: Implementation in progress on `codex/story-studio-mobile-audio`; native and hosted-environment acceptance gates remain open.
+
+## Implementation checklist (2026-09-18)
+
+Evidence: [implementation and device verification](verification/story-platform.md).
+Checks below distinguish implementation from unperformed device/operational acceptance.
+
+- [x] Inspect current main and reconcile library UI, timeline and existing ElevenLabs work.
+- [x] Phase 0: shared schemas, graph validation, release/asset/catalog contracts.
+- [x] Phase 0: local stack, environment isolation and byte-range delivery implementation.
+- [ ] Phase 0: real iOS/Android baseline and coordinated native stream/download cache.
+- [x] Phase 1: sessions, roles/ownership, revisions, uploads, measured MP3 metadata,
+  content-addressed private media, generation jobs, stale results, catalog/delivery APIs.
+- [x] Phase 2: authenticated Studio, library filters, details, JSON/scene/choice editing,
+  per-clip audio, interactive preview, independent catalog controls, validation feedback.
+- [x] Phase 3: exact-revision review, immutable candidates, atomic activation, schedules,
+  cancellation, history/rollback, withdrawal and media retention.
+- [x] Phase 4: cached catalog, one bundled welcome, local-first/progressive source resolver,
+  release/locale progress keys and explicit legacy mapping.
+- [x] Phase 5: persisted prioritized bounded queue, choice dependencies, constrained-network
+  policy, file checksum verification, retry and progress-preserving source errors.
+- [x] Phase 5: iOS simulator native process-death reconciliation and shared stream/download
+  byte reuse matrix, including background handoff, checksum failure and offline recovery.
+- [ ] Phase 5: shared-cache physical iOS lifecycle and Android runtime acceptance.
+- [x] Phase 6: explicit complete packages, pinning, native backup-excluded storage,
+  parent controls, shared references, low-space rejection and cache eviction policy.
+- [ ] Phase 6: real-device airplane-mode/restart, force quit, corruption and storage pressure.
+- [x] Phase 7: reproducible development fixtures and automated invariants/failure tests.
+- [x] Phase 7: checksum-verified database/media backup and isolated restore rehearsal.
+- [ ] Phase 7: device matrix, hosted staging/CDN and release acceptance.
+- [x] Cloudflare: local Workers Static Assets/API, D1 guarded atomic batches, private
+  checksum-verified R2 delivery and fenced Workflows implementation; 12 runtime tests.
+- [x] Cloudflare: bounded multipart ingestion through 99,999,999 bytes, complete MP3 frame
+  validation, exact-Origin cookie mutations, rotating recovery windows and sampled observability.
+- [x] Cloudflare: checksum-sealed local D1/private-R2 backup, legacy migration, validation and
+  replay-safe isolated restore; 3 data-operation tests and a two-cycle restore rehearsal.
+- [x] Cloudflare: connection rechecked read-only for Workers, D1, R2, Workflows and Pages.
+- [x] Cloudflare: isolated binding templates and local migration/account commands verified;
+  all environment configurations disable paid generation.
+- [ ] Cloudflare: hosted staging, CPU/memory/free-allowance qualification, hosted large uploads,
+  cloud backup/restore rehearsal and production rollout (not authorized).
+- [x] Mobile: opt-in shared native writer/loopback playback implementation on iOS/Android,
+  completed-prefix recovery and native-completion adoption after JS observer failure.
+- [x] Mobile: iOS simulator shared-cache fast/slow, range-fault, interruption,
+  process-restart, background and verified offline-playback matrix.
+- [ ] Mobile: shared-cache physical lifecycle, full Expo runtime and Android runtime
+  acceptance; keep
+  `EXPO_PUBLIC_SHARED_AUDIO_CACHE` off for rollout until these gates pass.
+
+- [x] Integration: four draft lane commits reviewed and cherry-picked locally; the fifth
+  player/voice lane was already on PR #10 and had no separate draft PR. No lane PR was merged.
+- [x] Integration: central scripts/dependencies now pin Studio Playwright acceptance,
+  Cloudflare data operations and the React hook lifecycle renderer. All 87 mobile tests run
+  by default; 14 real-Chromium Studio groups pass.
+- [x] Integration: layered local author → review → immutable publish → catalog → signed
+  stream/download → checksum-verified offline playback path passed against Fastify,
+  workerd/D1/R2/Workflow, mobile unit and dedicated iOS simulator harnesses.
+
+- [x] Listener continuation: cancellation-safe on-device speech with tap fallback,
+  immutable-release detail/resume, serialized progress, and verified offline controls;
+  87 mobile tests, including the 3 React-hook lifecycle regressions by default, and
+  mobile/root typechecks pass. See
+  [player/voice lane evidence](verification/parallel/mobile-player-voice.md).
+- [x] Listener physical iPhone airplane-mode playback and voice choice: user-observed
+  pass after correcting the startup crash documented in the lane report.
+- [ ] Remaining iOS permission/interruption/model and Android speech matrix. Home/lock
+  exposed a selected-but-silent response; hook regressions reproduce it and retest is pending.
+  Build/mocked recognition are not device passes.
+
+Cloudflare implementation and local commands: [runtime adaptation](cloudflare-adaptation.md).
+
+First vertical flow is covered by `services/content-api/src/platform.test.ts`.
+Mobile transport and queue wiring are in `apps/mobile/src/delivery`; native sources in
+`apps/mobile/modules/story-storage`. No production deployment or merge is authorized.
 
 ## 1. Agreed product scope
 
@@ -29,7 +102,9 @@ are engineering starting points to validate, not fixed product promises.
 
 ## 2. Existing foundation and gaps
 
-The repository currently has an Expo SDK 57 mobile player, validated JSON story
+Original PR #9 assessment (historical; superseded by the implementation checklist):
+
+The repository at that assessment had an Expo SDK 57 mobile player, validated JSON story
 graphs, bundled MP3/WAV assets, local progress, and a Fastify/OpenAI audio service.
 The player uses expo-audio with downloadFirst enabled and a bundled source map.
 There is no remote catalog, Studio, creator authentication, release database,

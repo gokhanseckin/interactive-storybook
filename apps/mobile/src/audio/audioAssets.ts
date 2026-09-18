@@ -7,12 +7,6 @@ const audioAssets: Record<string, AudioSource> = {
   wind: require('../../assets/audio/wind.wav'),
   stones: require('../../assets/audio/stones.wav'),
   ending: require('../../assets/audio/ending.wav'),
-  'calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/01-section-one': require('../../assets/audio/calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/01-section-one.mp3'),
-  'calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/02-decision-question': require('../../assets/audio/calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/02-decision-question.mp3'),
-  'calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/03-option-a': require('../../assets/audio/calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/03-option-a.mp3'),
-  'calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/04-option-b': require('../../assets/audio/calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/04-option-b.mp3'),
-  'calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/05-section-two': require('../../assets/audio/calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/05-section-two.mp3'),
-  'calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/06-optional-reminder': require('../../assets/audio/calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1/tr-TR/06-optional-reminder.mp3'),
 };
 
 export function getAudioSource(audioKey: string): AudioSource {

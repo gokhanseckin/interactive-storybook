@@ -13,3 +13,16 @@ dist/
 /content/calarin-ardindaki-gizli-bahce/audiobook-preview/*.mp3
 /content/calarin-ardindaki-gizli-bahce/audiobook-preview-common-only/*.mp3
 /content/calarin-ardindaki-gizli-bahce/elevenlabs-preview/*.mp3
+
+# Private content, accounts, sessions, generated delivery media
+.data/
+
+# Generated native module outputs
+/apps/mobile/modules/*/android/build/
+/apps/mobile/modules/*/android/.gradle/
+
+# Local Cloudflare emulation and secrets
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
