@@ -1,0 +1,80 @@
+name: PR verification
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-verification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Full-stack verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "1"
+      WRANGLER_SEND_METRICS: "false"
+
+    steps:
+      - name: Check out exact pull-request commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22.22.2
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/mobile/package-lock.json
+            services/audio-api/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install mobile dependencies
+        run: npm ci --prefix apps/mobile
+
+      - name: Install audio API dependencies
+        run: npm ci --prefix services/audio-api
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Check root and backend types
+        run: npm run typecheck
+
+      - name: Test contracts and content API
+        run: npm test
+
+      - name: Check Cloudflare Worker types
+        run: npm run cloudflare:check
+
+      - name: Build and test Cloudflare Worker and data operations
+        run: npm run cloudflare:test
+
+      - name: Check Studio JavaScript
+        run: npm run studio:check
+
+      - name: Run Studio browser acceptance
+        run: npm run studio:acceptance
+
+      - name: Check mobile types
+        run: npm run typecheck --prefix apps/mobile
+
+      - name: Test mobile application
+        run: npm test --prefix apps/mobile
+
+      - name: Check audio API types
+        run: npm run typecheck --prefix services/audio-api
+
+      - name: Test audio API without provider access
+        run: npm test --prefix services/audio-api
