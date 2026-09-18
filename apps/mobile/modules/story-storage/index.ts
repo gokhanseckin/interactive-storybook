@@ -9,6 +9,11 @@ export type TransferSpec = {
   progressive?: boolean;
 };
 type Native = {
+  recoverAsset?(
+    id: string,
+    bytes: number,
+    extension: string,
+  ): Promise<string | null>;
   root(): Promise<string>;
   playbackUrl(id: string): Promise<string>;
   unconstrainedWifi(): Promise<boolean>;
@@ -33,6 +38,8 @@ function module(): Native {
 }
 export default {
   root: () => module().root(),
+  recover: (id: string, bytes: number, extension: string) =>
+    module().recoverAsset?.(id, bytes, extension) ?? Promise.resolve(null),
   playbackUrl: (id: string) => module().playbackUrl(id),
   unconstrainedWifi: () =>
     native ? native.unconstrainedWifi() : Promise.resolve(false),

@@ -56,6 +56,21 @@ function setup() {
 }
 const settle = () => new Promise((r) => setTimeout(r, 60));
 describe("durable prioritized downloads", () => {
+  it("pauses a package without cancelling the active shared playback dependency", async () => {
+    const { queue, calls, adapter } = setup();
+    const retained: string[][] = [];
+    adapter.retain = async (ids) => {
+      retained.push(ids);
+    };
+    const m = manifest("shared");
+    queue.select(m, undefined, [asset(1).id]);
+    queue.pause(m.releaseId);
+    await settle();
+    expect(calls).toEqual([asset(1).id]);
+    expect(retained.at(-1)).toEqual([asset(1).id]);
+    queue.stop();
+    expect(retained.at(-1)).toEqual([]);
+  });
   it("fetches only selected-book dependencies on constrained networks and deduplicates", async () => {
     const { queue, calls } = setup();
     const m = manifest("one");

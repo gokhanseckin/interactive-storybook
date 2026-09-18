@@ -13,6 +13,9 @@ public class StoryStorageModule: Module {
         }
       }
     }
+    AsyncFunction("recoverAsset") { (id: String, bytes: Int, ext: String) -> String? in
+      NativeTransfers.shared.recover(id, bytes, ext)
+    }
     AsyncFunction("playbackUrl") { (id: String) -> String in
       guard id.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
         throw NSError(domain: "StoryTransfer", code: 1)
@@ -50,6 +53,9 @@ public class StoryStorageModule: Module {
 }
 
 public class StoryTransferSubscriber: ExpoAppDelegateSubscriber {
+  public func applicationWillEnterForeground(_ application: UIApplication) {
+    NativeTransfers.shared.enteredForeground()
+  }
   public func applicationDidEnterBackground(_ application: UIApplication) {
     NativeTransfers.shared.handoffToBackground()
   }
