@@ -63,9 +63,11 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
   const choice = useMemo(() => getChoiceNode(story, state), [state, story]);
   const stateRef = useRef(state);
   const [voicePreparing, setVoicePreparing] = useState(false);
+  const [audioModeRevision, setAudioModeRevision] = useState(0);
   const finishedSegmentRef = useRef<string | null>(null);
   const assignedSegmentRef = useRef<string | null>(null);
   const readySegmentRef = useRef<string | null>(null);
+  const [readinessRevision, setReadinessRevision] = useState(0);
   const pendingSeekRef = useRef<{
     requestId: number;
     segmentId: string;
@@ -140,7 +142,9 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
       shouldPlayInBackground: false,
       interruptionMode: "doNotMix",
       shouldRouteThroughEarpiece: false,
-    }).catch(() => undefined);
+    })
+      .then(() => setAudioModeRevision((n) => n + 1))
+      .catch(() => undefined);
   }, []);
 
   const voice = useMemo(
@@ -234,7 +238,10 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
       !status.didJustFinish &&
       status.currentTime <= 0.5
     ) {
-      readySegmentRef.current = currentSegment.id;
+      if (readySegmentRef.current !== currentSegment.id) {
+        readySegmentRef.current = currentSegment.id;
+        setReadinessRevision((n) => n + 1);
+      }
     }
   }, [
     currentSegment,
@@ -293,6 +300,7 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
     status.isLoaded,
     status.currentTime,
     seekRevision,
+    readinessRevision,
     transport,
   ]);
 
@@ -316,6 +324,8 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
     status.isLoaded,
     transport,
     seekRevision,
+    readinessRevision,
+    audioModeRevision,
   ]);
 
   useEffect(() => {

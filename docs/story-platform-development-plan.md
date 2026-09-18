@@ -44,10 +44,13 @@ Checks below distinguish implementation from unperformed device/operational acce
 
 - [x] Listener continuation: cancellation-safe on-device speech with tap fallback,
   immutable-release detail/resume, serialized progress, and verified offline controls;
-  76 mobile tests and mobile/root typechecks pass. See
+  76 default mobile tests plus 3 executed optional React-hook regressions, and mobile/root typechecks pass. See
   [player/voice lane evidence](verification/parallel/mobile-player-voice.md).
-- [ ] Listener physical iOS/Android speech matrix; local iPhone Release build passed,
-  user-assisted acceptance in progress. Build/mocked recognition are not device passes.
+- [x] Listener physical iPhone airplane-mode playback and voice choice: user-observed
+  pass after correcting the startup crash documented in the lane report.
+- [ ] Remaining iOS permission/interruption/model and Android speech matrix. Home/lock
+  exposed a selected-but-silent response; hook regressions reproduce it and retest is pending.
+  Build/mocked recognition are not device passes.
 
 Cloudflare implementation and local commands: [runtime adaptation](cloudflare-adaptation.md).
 

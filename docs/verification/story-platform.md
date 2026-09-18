@@ -217,6 +217,6 @@ remains historical evidence for the original transport only.
 ## Listener and voice continuation lane (2026-09-18)
 
 See [mobile player/voice evidence](parallel/mobile-player-voice.md) for scoped changes,
-76 passing mobile tests (35 added), 12 passing backend/contracts tests, root/mobile
+79 passing mobile tests with the optional hook runtime (38 added; 76 default tests), 12 passing backend/contracts tests, root/mobile
 TypeScript checks, local signed iPhone Release build and the explicitly separate
 physical speech acceptance matrix. Native delivery/cache work remains in its own lane.

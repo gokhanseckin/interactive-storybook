@@ -48,14 +48,18 @@ PR review inspection: no reviews/inline comments; CodeRabbit skipped the draft.
   pinning, cache clearing and cellular preference; delivery's active-release protection stays intact.
 - [x] Cloudflare MCP rechecked read-only: Workers scripts, D1 databases, R2 buckets,
   Workflows and Pages list endpoints each returned HTTP 200 / success=true. No mutations.
-- [ ] Physical iOS speech acceptance: in progress with user assistance; see below.
+- [x] Physical iOS airplane-mode playback and voice choice: user-observed pass on corrected build.
+- [ ] Physical iOS permission denial, cancellation/interruption and unavailable-model acceptance: in progress; see below.
 - [ ] Physical Android speech acceptance: no device reserved/available in this session.
 - [ ] Hosted Cloudflare/free-allowance measurements and production rollout: not performed.
 
 ## Automated evidence
 
-`npm test --prefix apps/mobile`: **76 tests passed** (11 files), versus 41 at the PR base.
-35 added behavioral cases cover recognition permission/model/cancellation races, native
+`npm test --prefix apps/mobile`: **76 default tests passed**; three optional React hook
+integration tests also ran using a temporary external renderer, for **79 passed** (12 files)
+in that invocation, versus 41 at the PR base. Default runs skip those three tests unless
+`STORY_REACT_TEST_RENDERER` is supplied (see integration instructions below).
+38 added behavioral cases cover recognition permission/model/cancellation races, native
 end fencing, tap fallback and late events, immutable release continuity, progress ordering,
 legacy cleanup, private-preview isolation, and verified offline status including missing artwork/files.
 These tests use fake recognizers/storage/transport; they prove application behavior, not
@@ -75,23 +79,23 @@ CoreDevice enumeration timed out; an unsandboxed read succeeded and reported the
 locked. The user agreed to unlock/help, and a second check reported `passcodeRequired: false`.
 A local development-signed Release build with bundled JavaScript and welcome audio
 **passed** (`xcodebuild`, Xcode 27, SDK iPhoneOS 27.0, iPhone 16 Pro Max destination).
-Native sources/configuration are unchanged from PR #10. Build log: `/private/tmp/story-voice-ios-build.log`. A build alone does not establish any speech or physical acceptance.
+Native sources/configuration are unchanged from PR #10. Build logs: `/private/tmp/story-voice-ios-build.log` and `/private/tmp/story-voice-ios-build-fixed.log`. A build alone does not establish any speech or physical acceptance.
 
 | Check | Evidence/status |
 | --- | --- |
-| Airplane mode, Wi-Fi/cellular off, Turkish speech selection | First build failed at Play before speech; fixed build retest pending |
+| Airplane mode playback and Turkish voice selection | **Passed, user-observed** on corrected iPhone 16 Pro Max / iOS 26.7 build; user reported both play and voice-based option selection successful in airplane mode |
 | Microphone permission denied, both tap options still work | Pending physical observation; app logic covered automatically |
 | Cancellation during permission/recording/resolution | App logic covered automatically; physical observation pending |
-| Home/lock/interruption and return, tap fallback | App logic covered automatically; physical observation pending |
+| Home/lock/interruption and return, tap fallback | **Failed** on second build: user reported option 2 was accepted (choices disappeared) but response stayed silent. Fix and third-build retest pending |
 | Unsupported locale/unavailable model on physical devices | Pending; mocked cases are not native evidence |
 | No child audio/transcript uploads or persistence | Explicit native options and code/persistence regression coverage; no device traffic/storage audit claimed |
-| Android airplane-mode/permission/model matrix | Unavailable in this session |
+| Android airplane-mode/permission/model matrix | `adb devices -l` returned an empty attached-device list; unavailable |
 | Shared streaming/download byte reuse | Owned by delivery task; no new measurements claimed here |
 
 ## Integration notes and remaining limits
 
-No App.tsx, configuration, dependency, native-storage or delivery-interface changes are
-required for these listener fixes. The new optional Downloads `onListen` prop is wired
+No App.tsx, production configuration/dependency, native-storage or delivery-interface
+changes are required for these listener fixes. The new optional Downloads `onListen` prop is wired
 inside LibraryScreen using the existing parent callback. Keep shared audio opt-in off
 until the delivery lane's acceptance gates pass. Do not treat this lane's speech work as
 shared-cache qualification.
@@ -100,7 +104,8 @@ Delivery integration follow-ups (reported, not edited):
 
 - `downloads()` memoizes a rejected initialization promise. A screen retry can retry UI
   subscription but cannot recover a native initialization failure until the delivery
-  singleton can be reset/reinitialized (or the app restarts).
+  singleton can be reset/reinitialized (or the app restarts). The delivery lane reports
+  this fixed in its separate branch; that change is not included in this listener build.
 - Cancelling/removing the active package is intentionally rejected by the current API;
   the parent must stop listening first. No UI workaround cancels active dependencies.
 - Staff previews still use the existing delivery inventory/cache. They are hidden from
@@ -120,5 +125,45 @@ without clearing native media, invalidates readiness refs, and replaces only a r
 non-null source inside a catchable promise chain. Three regression tests cover a native
 adapter rejecting null, cancelled late preparation and native replacement errors.
 The second local signed Release build **passed**, was installed and launched successfully.
-Its physical playback/speech retest is pending the user observation. The initial successful build
-and install did **not** imply successful playback; no offline/speech pass is inferred.
+The user then reported: “I tested play and voice based option selection successfully in airplane mode.”
+This is user-observed physical iPhone evidence, not a simulator or fake recognizer result.
+The requested procedure included Wi-Fi off; no independent radio-state/traffic measurement
+was taken. Permission denial, cancellation/interruption and unavailable-model checks remain
+separate rows above. The initial successful build
+and install did **not** imply successful playback; the pass is based only on the subsequent user observation.
+
+### Physical interruption failure and hook regressions
+
+The user next reported a failed Home/lock/return check: option 2 was selected and the
+choice buttons disappeared, but its response stayed silent. Two independently reproduced
+hook races explain this failure mode: source readiness was only a mutable ref, so a native
+status update that preserved `isLoaded=true` did not rerun Play; a late recognition `end`
+restored the audio category without rerunning Play after native recording teardown.
+Readiness now publishes a React state revision, and completed playback-mode restoration
+publishes another revision. Both retrigger Play only when logical mode is still playing;
+background-paused narration is not automatically resumed.
+
+`useStoryPlayer.lifecycle.test.tsx` renders the actual React hook with controlled native
+status/AppState/speech events. Against commit `145d725`, **two tests failed and one passed**.
+With the fix, **all three pass**, and the full invocation passes **79 tests**. This is
+behavioral regression evidence, not physical interruption acceptance. The third signed
+Release build passed and was installed/launched. Its physical interruption retest is pending.
+
+The user restricted shared dependency edits. Therefore the three hook-renderer tests use
+an **optional test-only external runtime**, not a package.json change. A permanent test
+integration should add `react-test-renderer@19.2.3` to mobile devDependencies (or migrate
+the harness to the project's chosen React Native testing library) and wire the test
+runtime in CI. React emits a deprecation notice for this renderer; it is not shipped in
+the app. This session installed it only in `/private/tmp/story-voice-hook-runtime` and
+linked its React dependency to the app's React to avoid duplicate hook dispatchers.
+
+Reproduce the optional integration invocation after supplying that runtime:
+
+```sh
+STORY_REACT_TEST_RENDERER=/private/tmp/story-voice-hook-runtime/node_modules/react-test-renderer/index.js \
+  npm test --prefix apps/mobile
+```
+
+Ordinary `npm test --prefix apps/mobile` runs the 76 tests that use existing dependencies
+and explicitly reports the three hook-renderer tests as skipped. No native recognition
+is mocked and then claimed as a physical pass anywhere in this report.
