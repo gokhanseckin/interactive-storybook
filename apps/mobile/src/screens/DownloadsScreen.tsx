@@ -1,37 +1,22 @@
 import { DeliveryLab } from "./DeliveryLab";
 import { StaffPreview } from "./StaffPreview";
 import { assets, type Manifest } from "@story/contracts";
-import { useEffect, useState } from "react";
+import { useDownloadQueue } from "../hooks/useDownloadQueue";
+import { downloadState } from "../hooks/downloadState";
 import { View, Text, Pressable, ScrollView, Switch, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { downloads } from "../delivery/native";
-import type { DownloadQueue } from "../delivery/queue";
+
 const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
 export function DownloadsScreen({
   onBack,
   onPreview,
+  onListen,
 }: {
   onBack: () => void;
+  onListen?: (storyId: string, releaseId: string, locale: string) => void;
   onPreview?: (m: Manifest) => void;
 }) {
-  const [queue, setQueue] = useState<DownloadQueue | null>(null),
-    [, update] = useState(0),
-    [error, setError] = useState("");
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    let mounted = true;
-    downloads()
-      .then((q) => {
-        if (!mounted) return;
-        setQueue(q);
-        unsubscribe = q.subscribe(() => update((n) => n + 1));
-      })
-      .catch((e) => setError(e.message));
-    return () => {
-      mounted = false;
-      unsubscribe?.();
-    };
-  }, []);
+  const { queue, error, retry } = useDownloadQueue();
   const action = (label: string, fn: () => unknown) => (
     <Pressable
       accessibilityRole="button"
@@ -64,7 +49,18 @@ export function DownloadsScreen({
         <Text style={{ fontSize: 28, color: "#302640" }}>
           İndirilenler ve depolama
         </Text>
-        {!!error && <Text>{error}</Text>}
+        {!!error && (
+          <>
+            <Text accessibilityLiveRegion="polite">{error}</Text>
+            {action("Tekrar dene", retry)}
+          </>
+        )}
+        {!queue && !error && <Text>İndirmeler hazırlanıyor…</Text>}
+        {queue && !Object.keys(queue.state.packages).length && (
+          <Text>
+            Henüz indirilen masal yok. Kitaplıktan bir masal seçebilirsin.
+          </Text>
+        )}
         <Text style={{ marginTop: 20 }}>
           Otomatik önbellek: {mb(autoBytes)} / {mb(queue?.budget ?? 0)}
         </Text>
@@ -74,6 +70,8 @@ export function DownloadsScreen({
             Kitapların tamamını mobil veri ile indirmeye izin ver
           </Text>
           <Switch
+            disabled={!queue}
+            accessibilityLabel="Kitapların tamamını mobil veri ile indir"
             value={queue?.state.cellular ?? false}
             onValueChange={(allow) => queue?.cellular(allow)}
           />
@@ -83,52 +81,62 @@ export function DownloadsScreen({
           silmek dinleme ilerlemesini silmez.
         </Text>
         {queue &&
-          Object.entries(queue.state.packages).map(([id, p]) => {
-            const progress = queue.progress(id),
-              failed = Object.values(queue.state.transfers).find(
-                (t) =>
-                  t.state === "failed" &&
-                  assets(p.manifest).some((a) => a.id === t.asset.id),
-              );
-            return (
-              <View
-                key={id}
-                style={{
-                  borderTopWidth: 1,
-                  borderColor: "#DFDAE8",
-                  paddingVertical: 20,
-                }}
-              >
-                <Text style={{ fontSize: 20, color: "#302640" }}>
-                  {p.manifest.story.title}
-                </Text>
-                <Text style={{ marginTop: 8 }}>
-                  {p.pinned && queue.complete(id)
-                    ? "İndirildi"
-                    : queue.complete(id)
-                      ? "Önbellekte — depolama gerektiğinde kaldırılabilir"
-                      : p.paused
-                        ? "Duraklatıldı"
-                        : failed
-                          ? "Tekrar dene"
-                          : "Kısmi indirme — internet gerekebilir"}
-                </Text>
-                <Text>
-                  {mb(progress.bytes)} / {mb(progress.total)}
-                </Text>
-                {failed && <Text>{failed.error}</Text>}
-                {!queue.complete(id) &&
-                  action(p.paused ? "Devam et" : "Duraklat", () =>
-                    queue.pause(id, !p.paused),
+          Object.entries(queue.state.packages)
+            .filter(([id]) => !id.startsWith("preview-"))
+            .map(([id, p]) => {
+              const progress = queue.progress(id),
+                failed = Object.values(queue.state.transfers).find(
+                  (t) =>
+                    t.state === "failed" &&
+                    assets(p.manifest).some((a) => a.id === t.asset.id),
+                );
+              return (
+                <View
+                  key={id}
+                  style={{
+                    borderTopWidth: 1,
+                    borderColor: "#DFDAE8",
+                    paddingVertical: 20,
+                  }}
+                >
+                  <Text style={{ fontSize: 20, color: "#302640" }}>
+                    {p.manifest.story.title}
+                  </Text>
+                  <Text style={{ marginTop: 8 }}>
+                    {downloadState(queue, id).label}
+                  </Text>
+                  <Text>
+                    {p.manifest.locale} · {id}
+                  </Text>
+                  <Text>
+                    {mb(progress.bytes)} / {mb(progress.total)}
+                  </Text>
+                  {failed && <Text>{failed.error}</Text>}
+                  {queue.complete(id) &&
+                    onListen &&
+                    action("Çevrimdışı dinle", () =>
+                      onListen(p.manifest.storyId, id, p.manifest.locale),
+                    )}
+                  {!queue.complete(id) &&
+                    action(p.paused ? "Devam et" : "Duraklat", () =>
+                      queue.pause(id, !p.paused),
+                    )}
+                  {failed && action("Tekrar dene", () => queue.retry(id))}
+                  {!p.pinned &&
+                    action("Çevrimdışı sakla", () =>
+                      queue.add(p.manifest, true),
+                    )}
+                  {action(
+                    !queue.complete(id)
+                      ? "İndirmeyi iptal et"
+                      : p.pinned
+                        ? "İndirmeyi kaldır"
+                        : "Önbellekten kaldır",
+                    () => queue.remove(id),
                   )}
-                {failed && action("Tekrar dene", () => queue.retry(id))}
-                {action(
-                  p.pinned ? "İndirmeyi kaldır" : "Önbellekten kaldır",
-                  () => queue.remove(id),
-                )}
-              </View>
-            );
-          })}
+                </View>
+              );
+            })}
         {onPreview && <StaffPreview onPreview={onPreview} />}
         {__DEV__ && <DeliveryLab />}
       </ScrollView>

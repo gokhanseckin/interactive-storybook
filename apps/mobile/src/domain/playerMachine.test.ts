@@ -39,7 +39,9 @@ describe('story player state machine', () => {
     expect(state.guidancePlayed).toBe(true);
     expect(state.selectedOptionId).toBeNull();
 
-    expect(reducePlayer(sampleStory, state, { type: 'GUIDANCE_TIMEOUT' })).toEqual(state);
+    expect(
+      reducePlayer(sampleStory, state, { type: 'GUIDANCE_TIMEOUT' }),
+    ).toEqual(state);
   });
 
   it.each([
@@ -53,7 +55,10 @@ describe('story player state machine', () => {
       trackKind: 'choicePrompt',
       mode: 'awaitingChoice',
     };
-    state = reducePlayer(sampleStory, state, { type: 'SELECT_OPTION', optionId });
+    state = reducePlayer(sampleStory, state, {
+      type: 'SELECT_OPTION',
+      optionId,
+    });
 
     expect(getCurrentSegment(sampleStory, state)?.id).toBe(responseSegmentId);
 
@@ -76,17 +81,78 @@ describe('story player state machine', () => {
 
   it('seeks to a validated story segment and pauses at the requested position', () => {
     const initial = createInitialPlayerState(sampleStory);
-    const sought = reducePlayer(sampleStory, { ...initial, mode: 'playing' }, {
-      type: 'SEEK',
-      nodeId: 'green-door',
-      segmentIndex: 0,
-      trackKind: 'narration',
-      selectedOptionId: null,
-      positionSeconds: 4.5,
-    });
+    const sought = reducePlayer(
+      sampleStory,
+      { ...initial, mode: 'playing' },
+      {
+        type: 'SEEK',
+        nodeId: 'green-door',
+        segmentIndex: 0,
+        trackKind: 'narration',
+        selectedOptionId: null,
+        positionSeconds: 4.5,
+      },
+    );
 
     expect(sought.nodeId).toBe('green-door');
     expect(sought.mode).toBe('paused');
     expect(sought.positionSeconds).toBe(4.5);
   });
+});
+
+it.each(['recordingChoice', 'resolvingChoice'] as const)(
+  'tap overrides %s and late speech cannot overwrite it',
+  (mode) => {
+    const state = {
+      ...createInitialPlayerState(sampleStory),
+      nodeId: 'silver-leaf-choice',
+      trackKind: 'choicePrompt' as const,
+      mode,
+    };
+    const tapped = reducePlayer(sampleStory, state, {
+      type: 'SELECT_OPTION',
+      optionId: 'inspect-stones',
+    });
+    expect(tapped.selectedOptionId).toBe('inspect-stones');
+    expect(
+      reducePlayer(sampleStory, tapped, {
+        type: 'SELECT_OPTION',
+        optionId: 'listen-to-wind',
+      }),
+    ).toEqual(tapped);
+    expect(
+      reducePlayer(sampleStory, tapped, {
+        type: 'VOICE_FAILED',
+        message: 'late error',
+      }),
+    ).toEqual(tapped);
+  },
+);
+it('restores a waiting choice with taps ready and rejects a missing saved node', () => {
+  const initial = createInitialPlayerState(sampleStory);
+  const restored = reducePlayer(sampleStory, initial, {
+    type: 'RESTORE',
+    snapshot: {
+      ...initial,
+      nodeId: 'silver-leaf-choice',
+      trackKind: 'choicePrompt',
+      mode: 'awaitingChoice',
+    },
+  });
+  expect(restored.mode).toBe('awaitingChoice');
+  expect(
+    reducePlayer(sampleStory, initial, {
+      type: 'RESTORE',
+      snapshot: { ...initial, nodeId: 'missing' },
+    }),
+  ).toEqual(initial);
+});
+it('late speech failures cannot turn narration into a choice', () => {
+  const state = createInitialPlayerState(sampleStory);
+  expect(
+    reducePlayer(sampleStory, state, {
+      type: 'VOICE_FAILED',
+      message: 'late error',
+    }),
+  ).toEqual(state);
 });

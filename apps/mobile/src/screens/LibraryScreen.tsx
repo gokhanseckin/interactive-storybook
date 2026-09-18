@@ -15,7 +15,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { catalog, manifest, API } from "../delivery/client";
-import { downloads } from "../delivery/native";
+import { useDownloadQueue } from "../hooks/useDownloadQueue";
+import { downloadState } from "../hooks/downloadState";
+import { listeningManifest } from "../hooks/listenerDetails";
+import { activeSession } from "../services/progressStore";
+import { assets } from "@story/contracts";
 import { sampleStory } from "../domain/sampleStory";
 import { DownloadsScreen } from "./DownloadsScreen";
 import type { Manifest } from "@story/contracts";
@@ -103,36 +107,42 @@ export function LibraryScreen({
   const [showDownloads, setShowDownloads] = useState(false);
   const [detail, setDetail] = useState<Manifest | null>(null);
   const [detailError, setDetailError] = useState("");
+  const [detailAttempt, setDetailAttempt] = useState(0);
+  const { queue, error: downloadError } = useDownloadQueue(!showDownloads);
   useEffect(() => {
     let mounted = true;
     const refresh = () =>
-      catalog().then((entries) => {
-        if (!mounted) return;
-        setBooks([
-          welcome,
-          ...entries.flatMap((e) => {
-            const locales = Object.keys(e.releases);
-            return (locales.length ? locales : ["tr-TR"]).map((locale) => ({
-              id: e.id,
-              title: e.card.title,
-              age: e.card.ageBand.replace("-", "–") + " yaş",
-              genre: locale,
-              available: e.visibility === "available",
-              plot: e.card.description,
-              names: "",
-              caption:
-                e.visibility === "coming-soon"
-                  ? "Yeni maceramız hazırlanıyor"
-                  : e.card.description,
-              releaseId: e.releases[locale],
-              locale,
-              cover: e.card.cover
-                ? API + "/api/covers/" + e.card.cover
-                : undefined,
-            }));
-          }),
-        ]);
-      });
+      catalog()
+        .then((entries) => {
+          if (!mounted) return;
+          setBooks([
+            welcome,
+            ...entries.flatMap((e) => {
+              const locales = Object.keys(e.releases);
+              return (locales.length ? locales : ["tr-TR"]).map((locale) => ({
+                id: e.id,
+                title: e.card.title,
+                age: e.card.ageBand.replace("-", "–") + " yaş",
+                genre: locale,
+                available: e.visibility === "available",
+                plot: e.card.description,
+                names: "",
+                caption:
+                  e.visibility === "coming-soon"
+                    ? "Yeni maceramız hazırlanıyor"
+                    : e.card.description,
+                releaseId: e.releases[locale],
+                locale,
+                cover: e.card.cover
+                  ? API + "/api/covers/" + e.card.cover
+                  : undefined,
+              }));
+            }),
+          ]);
+        })
+        .catch(() => {
+          /* The bundled welcome remains usable if metadata storage fails. */
+        });
     void refresh();
     const sub = AppState.addEventListener("change", (s) => {
       if (s === "active") void refresh();
@@ -147,7 +157,10 @@ export function LibraryScreen({
     setDetailError("");
     let mounted = true;
     if (book?.releaseId)
-      manifest(book.releaseId)
+      listeningManifest(book.id, book.locale, book.releaseId, {
+        activeSession,
+        manifest,
+      })
         .then((m) => {
           if (mounted) setDetail(m);
         })
@@ -160,13 +173,17 @@ export function LibraryScreen({
     return () => {
       mounted = false;
     };
-  }, [book]);
+  }, [book, detailAttempt]);
   const [premium, setPremium] = useState(false);
   const [filter, setFilter] = useState("Tümü");
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
+        if (showDownloads) {
+          setShowDownloads(false);
+          return true;
+        }
         if (premium) {
           setPremium(false);
           return true;
@@ -179,16 +196,44 @@ export function LibraryScreen({
       },
     );
     return () => subscription.remove();
-  }, [book, premium]);
+  }, [book, premium, showDownloads]);
   if (showDownloads)
     return (
       <DownloadsScreen
         onPreview={onPreview}
+        onListen={onListen}
         onBack={() => setShowDownloads(false)}
       />
     );
+  const offlineBooks: Book[] = Object.values(queue?.state.packages ?? {})
+    .filter(
+      (p) =>
+        p.pinned &&
+        !p.manifest.releaseId.startsWith("preview-") &&
+        !books.some(
+          (b) => b.id === p.manifest.storyId && b.locale === p.manifest.locale,
+        ),
+    )
+    .map((p) => ({
+      id: p.manifest.storyId,
+      title: p.manifest.story.title,
+      age: "",
+      genre: p.manifest.locale,
+      available: true,
+      plot: "İndirilen masal",
+      names: "",
+      caption: "Kitaplığında saklanan sürüm",
+      releaseId: p.manifest.releaseId,
+      locale: p.manifest.locale,
+    }));
+  const libraryBooks = [...books, ...offlineBooks];
   const visible =
-    filter === "Tümü" ? books : books.filter((item) => item.age === filter);
+    filter === "Tümü"
+      ? libraryBooks
+      : libraryBooks.filter((item) => item.age === filter);
+  const download =
+    detail && queue ? downloadState(queue, detail.releaseId) : null;
+  const playDisabled = !book?.available || (!!book?.releaseId && !detail);
   return (
     <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
       {book ? (
@@ -224,7 +269,9 @@ export function LibraryScreen({
                     ? `${Math.ceil(Object.values(detail.audio).reduce((n, a) => n + a.duration, 0) / 60)} dakika`
                     : book.id === welcome.id
                       ? "1 dakika"
-                      : "Yakında"
+                      : book.available
+                        ? "Hazırlanıyor…"
+                        : "Yakında"
                 }
                 label={book.available ? "Sesli macera" : "Yeni masal"}
               />
@@ -233,25 +280,61 @@ export function LibraryScreen({
             </View>
             <Text style={s.sectionTitle}>Seni neler bekliyor?</Text>
             <Text style={s.plot}>{book.plot}</Text>
-            {!!detailError && <Text style={s.note}>{detailError}</Text>}
+            {!!detailError && (
+              <>
+                <Text accessibilityLiveRegion="polite" style={s.note}>
+                  {detailError}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setDetailAttempt((n) => n + 1)}
+                  style={s.customButton}
+                >
+                  <Text style={s.customButtonText}>Tekrar dene</Text>
+                </Pressable>
+              </>
+            )}
+            {book.id === welcome.id && (
+              <Text style={s.note}>Çevrimdışı hazır — uygulamaya dahil</Text>
+            )}
+            {download && (
+              <Text accessibilityLiveRegion="polite" style={s.note}>
+                {download.label}
+              </Text>
+            )}
+            {!!downloadError && <Text style={s.note}>{downloadError}</Text>}
+            {detail && (
+              <Text style={s.note}>
+                {(
+                  assets(detail).reduce((n, a) => n + a.bytes, 0) / 1048576
+                ).toFixed(1)}{" "}
+                MB · {detail.locale}
+              </Text>
+            )}
+            {detail && detail.releaseId !== book.releaseId && (
+              <Text style={s.note}>Kaldığın sürümle devam ediyorsun.</Text>
+            )}
             {detail && (
               <Pressable
                 accessibilityRole="button"
                 style={s.customButton}
-                onPress={() =>
-                  downloads()
-                    .then((q) => {
-                      q.add(detail, true);
-                      Alert.alert(
-                        "İndirme eklendi",
-                        `${(Object.values(detail.audio).reduce((n, a) => n + a.bytes, 0) / 1048576).toFixed(1)} MB. Wi-Fi dışında indirme iznini depolama ekranından değiştirebilirsiniz.`,
-                      );
-                    })
-                    .catch((e) => Alert.alert("İndirme", e.message))
-                }
+                disabled={!queue || (download?.complete && download.pinned)}
+                onPress={() => {
+                  if (!queue) return;
+                  queue.add(detail, true);
+                  if (download?.failed) queue.retry(detail.releaseId);
+                  Alert.alert(
+                    "İndirme eklendi",
+                    "İlerlemeyi ve mobil veri iznini İndirilenler ekranından yönetebilirsiniz.",
+                  );
+                }}
               >
                 <Text style={s.customButtonText}>
-                  Çevrimdışı dinlemek için indir
+                  {download?.pinned
+                    ? download.complete
+                      ? "İndirildi"
+                      : "İndirmeyi sürdür"
+                    : "Çevrimdışı dinlemek için indir"}
                 </Text>
               </Pressable>
             )}
@@ -300,16 +383,28 @@ export function LibraryScreen({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              disabled={!book.available || (!!book.releaseId && !detail)}
-              accessibilityState={{ disabled: !book.available }}
-              onPress={() => onListen(book.id, book.releaseId, book.locale)}
+              disabled={playDisabled}
+              accessibilityState={{ disabled: playDisabled }}
+              onPress={() =>
+                onListen(
+                  book.id,
+                  detail?.releaseId ?? book.releaseId,
+                  book.locale,
+                )
+              }
               style={[
                 s.listenButton,
-                !book.available && { backgroundColor: "#ACA4B6" },
+                playDisabled && { backgroundColor: "#ACA4B6" },
               ]}
             >
               <Text style={s.listenButtonText}>
-                {book.available ? "▶   Dinlemeye başla" : "Çok yakında"}
+                {playDisabled && book.available
+                  ? detailError
+                    ? "Masal açılamadı"
+                    : "Masal hazırlanıyor…"
+                  : book.available
+                    ? "▶   Dinlemeye başla"
+                    : "Çok yakında"}
               </Text>
             </Pressable>
             <Text style={s.dockCaption}>
@@ -352,7 +447,7 @@ export function LibraryScreen({
             </Text>
             <View style={s.libraryHeading}>
               <Text style={s.sectionTitle}>Masal kitaplığın</Text>
-              <Text style={s.count}>{books.length} masal</Text>
+              <Text style={s.count}>{libraryBooks.length} masal</Text>
             </View>
             <View style={s.filters}>
               {["Tümü", "6–8 yaş", "8–10 yaş"].map((value) => (

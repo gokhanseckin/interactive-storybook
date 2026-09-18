@@ -213,3 +213,10 @@ Simulator UI showed a black surface and its Home action did not produce a confir
 native transition (`foreground` remained true in the transfer journal). No new shared
 background/suspension pass is claimed. The earlier baseline background-download pass
 remains historical evidence for the original transport only.
+
+## Listener and voice continuation lane (2026-09-18)
+
+See [mobile player/voice evidence](parallel/mobile-player-voice.md) for scoped changes,
+76 passing mobile tests (35 added), 12 passing backend/contracts tests, root/mobile
+TypeScript checks, local signed iPhone Release build and the explicitly separate
+physical speech acceptance matrix. Native delivery/cache work remains in its own lane.

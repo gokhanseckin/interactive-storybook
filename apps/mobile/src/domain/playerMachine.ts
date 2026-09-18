@@ -1,10 +1,7 @@
 import type { AudioSegment, ChoiceNode, Story } from './storySchema';
 
 export type TrackKind =
-  | 'narration'
-  | 'choicePrompt'
-  | 'choiceGuidance'
-  | 'choiceResponse';
+  'narration' | 'choicePrompt' | 'choiceGuidance' | 'choiceResponse';
 
 export type PlayerMode =
   | 'paused'
@@ -65,7 +62,10 @@ export function createInitialPlayerState(story: Story): PlayerState {
   };
 }
 
-export function getChoiceNode(story: Story, state: PlayerState): ChoiceNode | null {
+export function getChoiceNode(
+  story: Story,
+  state: PlayerState,
+): ChoiceNode | null {
   const node = story.nodes[state.nodeId];
   return node?.kind === 'choice' ? node : null;
 }
@@ -114,7 +114,11 @@ function finishNarration(story: Story, state: PlayerState): PlayerState {
   if (!node || node.kind !== 'narration') return state;
 
   if (state.segmentIndex + 1 < node.segments.length) {
-    return { ...state, segmentIndex: state.segmentIndex + 1, positionSeconds: 0 };
+    return {
+      ...state,
+      segmentIndex: state.segmentIndex + 1,
+      positionSeconds: 0,
+    };
   }
 
   if (!node.nextNodeId) {
@@ -134,7 +138,11 @@ function finishChoiceTrack(story: Story, state: PlayerState): PlayerState {
 
   if (state.trackKind === 'choicePrompt') {
     if (state.segmentIndex + 1 < node.promptSegments.length) {
-      return { ...state, segmentIndex: state.segmentIndex + 1, positionSeconds: 0 };
+      return {
+        ...state,
+        segmentIndex: state.segmentIndex + 1,
+        positionSeconds: 0,
+      };
     }
     return { ...state, mode: 'awaitingChoice', positionSeconds: 0 };
   }
@@ -152,7 +160,11 @@ function finishChoiceTrack(story: Story, state: PlayerState): PlayerState {
   if (state.trackKind === 'choiceResponse' && state.selectedOptionId) {
     const option = node.options.find(({ id }) => id === state.selectedOptionId);
     if (option && state.segmentIndex + 1 < option.responseSegments.length) {
-      return { ...state, segmentIndex: state.segmentIndex + 1, positionSeconds: 0 };
+      return {
+        ...state,
+        segmentIndex: state.segmentIndex + 1,
+        positionSeconds: 0,
+      };
     }
 
     return {
@@ -172,11 +184,15 @@ export function reducePlayer(
 ): PlayerState {
   switch (event.type) {
     case 'PLAY':
-      return state.mode === 'paused' ? { ...state, mode: 'playing', message: null } : state;
+      return state.mode === 'paused'
+        ? { ...state, mode: 'playing', message: null }
+        : state;
     case 'PAUSE':
       return state.mode === 'playing' ? { ...state, mode: 'paused' } : state;
     case 'PROGRESS':
-      return { ...state, positionSeconds: Math.max(0, event.positionSeconds) };
+      return Number.isFinite(event.positionSeconds)
+        ? { ...state, positionSeconds: Math.max(0, event.positionSeconds) }
+        : state;
     case 'SEEK': {
       const target = {
         ...state,
@@ -213,15 +229,16 @@ export function reducePlayer(
         ? { ...state, mode: 'resolvingChoice' }
         : state;
     case 'VOICE_FAILED':
-      return {
-        ...state,
-        mode: 'awaitingChoice',
-        message: event.message,
-      };
+      return getChoiceNode(story, state) && state.trackKind !== 'choiceResponse'
+        ? { ...state, mode: 'awaitingChoice', message: event.message }
+        : state;
     case 'SELECT_OPTION': {
       const choice = getChoiceNode(story, state);
-      const optionExists = choice?.options.some(({ id }) => id === event.optionId);
-      if (!choice || !optionExists) return state;
+      const optionExists = choice?.options.some(
+        ({ id }) => id === event.optionId,
+      );
+      if (!choice || !optionExists || state.trackKind === 'choiceResponse')
+        return state;
 
       return {
         ...state,
@@ -240,14 +257,32 @@ export function reducePlayer(
     }
     case 'RESTART':
       return createInitialPlayerState(story);
-    case 'RESTORE':
-      return event.snapshot.storyId === story.id
-        ? { ...event.snapshot, mode: 'paused', message: null }
-        : createInitialPlayerState(story);
+    case 'RESTORE': {
+      const saved = event.snapshot;
+      if (
+        saved.storyId !== story.id ||
+        !getCurrentSegment(story, { ...saved, mode: 'paused' })
+      )
+        return createInitialPlayerState(story);
+      const awaiting =
+        ['awaitingChoice', 'recordingChoice', 'resolvingChoice'].includes(
+          saved.mode,
+        ) &&
+        getChoiceNode(story, saved) &&
+        saved.trackKind !== 'choiceResponse';
+      return {
+        ...saved,
+        mode: awaiting ? 'awaitingChoice' : 'paused',
+        message: null,
+      };
+    }
   }
 }
 
-export function hasMeaningfulProgress(story: Story, state: PlayerState): boolean {
+export function hasMeaningfulProgress(
+  story: Story,
+  state: PlayerState,
+): boolean {
   const initial = createInitialPlayerState(story);
   return (
     state.nodeId !== initial.nodeId ||

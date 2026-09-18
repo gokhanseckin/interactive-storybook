@@ -36,6 +36,13 @@ export const LEGACY_RELEASES: Record<string, string> = {
   "calilarin-ardindaki-gizli-bahce-test-elevenlabs-v1":
     "bundled-garden-elevenlabs-v1",
 };
+// Order writes/removals, including the release pointer, across rapid native events.
+let writes = Promise.resolve();
+function serialize(operation: () => Promise<void>): Promise<void> {
+  const next = writes.catch(() => undefined).then(operation);
+  writes = next;
+  return next;
+}
 type ReleaseContext = { releaseId: string; locale: string };
 function storageKey(storyId: string, context?: ReleaseContext) {
   return context
@@ -46,16 +53,29 @@ export async function activeSession(
   storyId: string,
   locale: string,
 ): Promise<string | null> {
+  await writes.catch(() => undefined);
   const raw = await AsyncStorage.getItem(
     `${STORAGE_PREFIX}active/${storyId}/${locale}`,
   );
   if (!raw && LEGACY_RELEASES[storyId]) {
     const legacy = await loadProgress(storyId);
-    if (legacy && legacy.mode !== "completed") return LEGACY_RELEASES[storyId];
+    if (locale === "tr-TR" && legacy && legacy.mode !== "completed")
+      return LEGACY_RELEASES[storyId];
   }
   try {
     const value = JSON.parse(raw ?? "null");
-    return value?.completed ? null : (value?.releaseId ?? null);
+    if (
+      !value ||
+      value.completed !== false ||
+      typeof value.releaseId !== "string" ||
+      value.releaseId.startsWith("preview-")
+    )
+      return null;
+    const saved = await loadProgress(storyId, {
+      releaseId: value.releaseId,
+      locale,
+    });
+    return saved && saved.mode !== "completed" ? value.releaseId : null;
   } catch {
     return null;
   }
@@ -66,7 +86,11 @@ export async function loadProgress(
   context?: ReleaseContext,
 ): Promise<PlayerState | null> {
   let stored = await AsyncStorage.getItem(storageKey(storyId, context));
-  if (!stored && context && LEGACY_RELEASES[storyId] === context.releaseId)
+  if (
+    !stored &&
+    context?.locale === "tr-TR" &&
+    LEGACY_RELEASES[storyId] === context.releaseId
+  )
     stored = await AsyncStorage.getItem(storageKey(storyId));
   if (!stored) return null;
 
@@ -89,31 +113,50 @@ export async function saveProgress(
   state: PlayerState,
   context?: ReleaseContext,
 ): Promise<void> {
-  const safeState: PlayerState = {
+  if (context?.releaseId.startsWith("preview-")) return;
+  const safeState = PlayerStateSchema.parse({
     ...state,
     message: null,
     mode:
       state.mode === "recordingChoice" || state.mode === "resolvingChoice"
         ? "awaitingChoice"
         : state.mode,
-  };
-  await AsyncStorage.setItem(
-    storageKey(state.storyId, context),
-    JSON.stringify(safeState),
-  );
-  if (context)
+  });
+  return serialize(async () => {
     await AsyncStorage.setItem(
-      `${STORAGE_PREFIX}active/${state.storyId}/${context.locale}`,
-      JSON.stringify({
-        releaseId: context.releaseId,
-        completed: state.mode === "completed",
-      }),
+      storageKey(state.storyId, context),
+      JSON.stringify(safeState),
     );
+    if (context)
+      await AsyncStorage.setItem(
+        `${STORAGE_PREFIX}active/${state.storyId}/${context.locale}`,
+        JSON.stringify({
+          releaseId: context.releaseId,
+          completed: safeState.mode === "completed",
+        }),
+      );
+  });
 }
 
 export async function clearProgress(
   storyId: string,
   context?: ReleaseContext,
 ): Promise<void> {
-  await AsyncStorage.removeItem(storageKey(storyId, context));
+  return serialize(async () => {
+    await AsyncStorage.removeItem(storageKey(storyId, context));
+    if (!context) return;
+    if (
+      context.locale === "tr-TR" &&
+      LEGACY_RELEASES[storyId] === context.releaseId
+    )
+      await AsyncStorage.removeItem(storageKey(storyId));
+    const key = `${STORAGE_PREFIX}active/${storyId}/${context.locale}`;
+    try {
+      const active = JSON.parse((await AsyncStorage.getItem(key)) ?? "null");
+      if (active?.releaseId === context.releaseId)
+        await AsyncStorage.removeItem(key);
+    } catch {
+      /* Corrupt pointers are ignored by activeSession. */
+    }
+  });
 }

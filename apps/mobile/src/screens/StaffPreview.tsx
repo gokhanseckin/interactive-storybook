@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, Pressable } from "react-native";
 import { ManifestSchema, type Manifest } from "@story/contracts";
 import { staffLogin, staffLogout, request } from "../delivery/client";
@@ -13,12 +13,28 @@ export function StaffPreview({
     [stories, setStories] = useState<
       { id: string; revision: number; story: { title: string } }[] | null
     >(null);
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const run = async (fn: () => Promise<void>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
     setError("");
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Preview failed");
+      if (mounted.current)
+        setError(e instanceof Error ? e.message : "Preview failed");
+    } finally {
+      inFlight.current = false;
+      if (mounted.current) setBusy(false);
     }
   };
   return (
@@ -50,11 +66,14 @@ export function StaffPreview({
             style={{ padding: 12 }}
           />
           <Pressable
+            accessibilityRole="button"
+            disabled={busy}
             onPress={() =>
               run(async () => {
                 await staffLogin(email, password);
                 setPassword("");
-                setStories(await request("/stories"));
+                const drafts = await request("/stories");
+                if (mounted.current) setStories(drafts);
               })
             }
           >
@@ -64,6 +83,8 @@ export function StaffPreview({
       ) : (
         <>
           <Pressable
+            accessibilityRole="button"
+            disabled={busy}
             onPress={() => {
               void run(async () => {
                 try {
@@ -76,19 +97,43 @@ export function StaffPreview({
           >
             <Text style={{ padding: 12, color: "#695091" }}>Çıkış yap</Text>
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() =>
+              run(async () => {
+                const drafts = await request("/stories");
+                if (mounted.current) setStories(drafts);
+              })
+            }
+          >
+            <Text style={{ padding: 12, color: "#695091" }}>
+              Taslakları yenile
+            </Text>
+          </Pressable>
           {stories.map((d) => (
             <Pressable
+              accessibilityRole="button"
+              disabled={busy}
               key={d.id}
               onPress={() =>
-                run(async () =>
-                  onPreview(
-                    ManifestSchema.parse(
-                      await request(`/stories/${d.id}/preview`, {
-                        revision: d.revision,
-                      }),
+                run(async () => {
+                  const m = ManifestSchema.parse(
+                    await request(
+                      `/stories/${encodeURIComponent(d.id)}/preview`,
+                      { revision: d.revision },
                     ),
-                  ),
-                )
+                  );
+                  if (
+                    m.storyId !== d.id ||
+                    m.revision !== d.revision ||
+                    !m.releaseId.startsWith("preview-")
+                  )
+                    throw new Error(
+                      "Önizleme sürümü değişti. Listeyi yenileyin.",
+                    );
+                  if (mounted.current) onPreview(m);
+                })
               }
             >
               <Text style={{ padding: 12, color: "#695091" }}>
@@ -98,7 +143,10 @@ export function StaffPreview({
           ))}
         </>
       )}
-      {!!error && <Text>{error}</Text>}
+      {busy && (
+        <Text accessibilityLiveRegion="polite">Önizleme hazırlanıyor…</Text>
+      )}
+      {!!error && <Text accessibilityLiveRegion="polite">{error}</Text>}
     </View>
   );
 }

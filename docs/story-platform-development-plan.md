@@ -42,6 +42,12 @@ Checks below distinguish implementation from unperformed device/operational acce
 - [ ] Mobile: shared-cache physical lifecycle and Android runtime acceptance; keep
   `EXPO_PUBLIC_SHARED_AUDIO_CACHE` off for rollout until these gates pass.
 
+- [x] Listener continuation: cancellation-safe on-device speech with tap fallback,
+  immutable-release detail/resume, serialized progress, and verified offline controls;
+  76 mobile tests and mobile/root typechecks pass. See
+  [player/voice lane evidence](verification/parallel/mobile-player-voice.md).
+- [ ] Listener physical iOS/Android speech matrix; local iPhone Release build passed,
+  user-assisted acceptance in progress. Build/mocked recognition are not device passes.
 
 Cloudflare implementation and local commands: [runtime adaptation](cloudflare-adaptation.md).
 

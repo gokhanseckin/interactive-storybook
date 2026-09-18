@@ -188,6 +188,8 @@ export function StoryPlayerScreen({
     navigateToSection,
     startVoiceChoice,
     finishVoiceChoice,
+    cancelVoiceChoice,
+    voicePreparing,
     continueSaved,
     restart,
   } = player;
@@ -209,11 +211,17 @@ export function StoryPlayerScreen({
       state.trackKind === "choiceGuidance"),
   );
   const canTapChoice =
-    state.mode === "awaitingChoice" || state.trackKind === "choiceGuidance";
+    state.mode === "awaitingChoice" ||
+    state.mode === "recordingChoice" ||
+    state.mode === "resolvingChoice" ||
+    state.trackKind === "choiceGuidance";
   const sectionNavigationLocked =
-    state.mode === "recordingChoice" || state.mode === "resolvingChoice";
+    voicePreparing ||
+    state.mode === "recordingChoice" ||
+    state.mode === "resolvingChoice";
 
   const listeningLabel = useMemo(() => {
+    if (voicePreparing) return "Sesli seçim hazırlanıyor";
     switch (state.mode) {
       case "playing":
         return state.trackKind === "choiceGuidance"
@@ -230,7 +238,7 @@ export function StoryPlayerScreen({
       case "completed":
         return "Bölüm tamamlandı";
     }
-  }, [state.mode, state.trackKind]);
+  }, [state.mode, state.trackKind, voicePreparing]);
 
   const handleMainAction = () => {
     if (state.mode === "completed") {
@@ -386,6 +394,7 @@ export function StoryPlayerScreen({
           {playbackSection ? (
             <StoryTimeline
               disabled={
+                voicePreparing ||
                 state.mode === "recordingChoice" ||
                 state.mode === "resolvingChoice"
               }
@@ -426,7 +435,7 @@ export function StoryPlayerScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={mainActionLabel}
-              disabled={state.mode === "resolvingChoice"}
+              disabled={voicePreparing || state.mode === "resolvingChoice"}
               onPress={handleMainAction}
               style={({ pressed }) => [
                 styles.mainButton,
@@ -461,11 +470,31 @@ export function StoryPlayerScreen({
               <SectionSkipIcon direction="next" />
             </Pressable>
           </View>
-          <Text style={styles.mainActionLabel}>{mainActionLabel}</Text>
+          <Text style={styles.mainActionLabel}>
+            {voicePreparing ? "Sesli seçim hazırlanıyor" : mainActionLabel}
+          </Text>
+          {(voicePreparing ||
+            state.mode === "recordingChoice" ||
+            state.mode === "resolvingChoice") && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={cancelVoiceChoice}
+              style={{ padding: 12 }}
+            >
+              <Text style={{ color: palette.amber, textAlign: "center" }}>
+                Sesli seçimi iptal et
+              </Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
-      <Modal animationType="fade" transparent visible={Boolean(resumeSnapshot)}>
+      <Modal
+        animationType="fade"
+        transparent
+        visible={Boolean(resumeSnapshot)}
+        onRequestClose={onBack}
+      >
         <View style={styles.modalBackdrop}>
           <View style={styles.resumeCard}>
             <Text style={styles.resumeTitle}>Kaldığın yer hazır</Text>

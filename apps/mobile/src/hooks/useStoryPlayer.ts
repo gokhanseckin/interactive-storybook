@@ -1,3 +1,4 @@
+import { preparePlaybackSource } from "./preparePlaybackSource";
 import { metric } from "../delivery/metrics";
 import {
   useCallback,
@@ -20,7 +21,7 @@ import {
 
 import { source, type PlaybackContext } from "../delivery/source";
 import { getAudioDurationSeconds } from "../audio/audioDurations";
-import { resolveChoiceFromTranscripts } from "../domain/choiceResolver";
+import { VoiceChoiceSession, VOICE_RETRY } from "../domain/voiceChoiceSession";
 import {
   buildPlaybackSection,
   findPlaybackSectionTarget,
@@ -44,17 +45,6 @@ import {
   saveProgress,
 } from "../services/progressStore";
 
-const VOICE_UNAVAILABLE_MESSAGE =
-  "Bu cihazda çevrimdışı ses tanıma kullanılamıyor. Seçeneğe dokunabilirsin.";
-const VOICE_NOT_RECOGNIZED_MESSAGE =
-  "Söylediğin seçeneği anlayamadım. Tekrar söyleyebilir veya dokunabilirsin.";
-const OFFLINE_MODEL_MESSAGE =
-  "Çevrimdışı dil paketini indirmen için cihaz penceresi açıldı. Bu sırada seçeneğe dokunabilirsin.";
-
-function normalizeLocale(locale: string): string {
-  return locale.replaceAll("_", "-").toLowerCase();
-}
-
 export function useStoryPlayer(story: Story, context: PlaybackContext) {
   const [state, dispatchBase] = useReducer(
     (current: PlayerState, event: PlayerEvent) =>
@@ -72,10 +62,9 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
   );
   const choice = useMemo(() => getChoiceNode(story, state), [state, story]);
   const stateRef = useRef(state);
-  const choiceRef = useRef(choice);
-  const voiceSessionActiveRef = useRef(false);
-  const voiceResultHandledRef = useRef(false);
+  const [voicePreparing, setVoicePreparing] = useState(false);
   const finishedSegmentRef = useRef<string | null>(null);
+  const assignedSegmentRef = useRef<string | null>(null);
   const readySegmentRef = useRef<string | null>(null);
   const pendingSeekRef = useRef<{
     requestId: number;
@@ -122,7 +111,7 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
   );
   const playbackSection = useMemo(
     () => buildPlaybackSection(story, state, duration),
-    [state, story],
+    [state, story, duration],
   );
   const playbackSectionElapsed = playbackSection
     ? getPlaybackSectionElapsed(
@@ -144,10 +133,6 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
     stateRef.current = state;
   }, [state]);
 
-  useEffect(() => {
-    choiceRef.current = choice;
-  }, [choice]);
-
   const restorePlaybackAudioMode = useCallback(() => {
     setAudioModeAsync({
       allowsRecording: false,
@@ -158,57 +143,26 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
     }).catch(() => undefined);
   }, []);
 
-  useSpeechRecognitionEvent("result", (event) => {
-    if (!event.isFinal || !voiceSessionActiveRef.current) return;
-
-    voiceResultHandledRef.current = true;
-    voiceSessionActiveRef.current = false;
-    restorePlaybackAudioMode();
-    dispatch({ type: "START_RESOLVING" });
-
-    const activeChoice = choiceRef.current;
-    const optionId = activeChoice
-      ? resolveChoiceFromTranscripts(
-          event.results.map(({ transcript }) => transcript),
-          activeChoice.options,
-          story.language,
-        )
-      : null;
-
-    dispatch(
-      optionId
-        ? { type: "SELECT_OPTION", optionId }
-        : { type: "VOICE_FAILED", message: VOICE_NOT_RECOGNIZED_MESSAGE },
-    );
-  });
-
-  useSpeechRecognitionEvent("error", (event) => {
-    if (!voiceSessionActiveRef.current || event.error === "aborted") return;
-    voiceSessionActiveRef.current = false;
-    voiceResultHandledRef.current = true;
-    restorePlaybackAudioMode();
-    dispatch({
-      type: "VOICE_FAILED",
-      message:
-        event.error === "no-speech" || event.error === "speech-timeout"
-          ? VOICE_NOT_RECOGNIZED_MESSAGE
-          : VOICE_UNAVAILABLE_MESSAGE,
-    });
-  });
-
-  useSpeechRecognitionEvent("end", () => {
-    restorePlaybackAudioMode();
-    if (!voiceSessionActiveRef.current || voiceResultHandledRef.current) return;
-    voiceSessionActiveRef.current = false;
-    dispatch({ type: "VOICE_FAILED", message: VOICE_NOT_RECOGNIZED_MESSAGE });
-  });
-
+  const voice = useMemo(
+    () =>
+      new VoiceChoiceSession(
+        ExpoSpeechRecognitionModule,
+        Platform.OS === "android" ? Number(Platform.Version) : null,
+        dispatch,
+        setVoicePreparing,
+        restorePlaybackAudioMode,
+      ),
+    [dispatch, restorePlaybackAudioMode],
+  );
+  useSpeechRecognitionEvent("result", (event) =>
+    voice.result(event.isFinal, event.results),
+  );
+  useSpeechRecognitionEvent("error", (event) => voice.error(event.error));
+  useSpeechRecognitionEvent("end", () => voice.end());
   useEffect(() => {
     restorePlaybackAudioMode();
-    return () => {
-      if (voiceSessionActiveRef.current) ExpoSpeechRecognitionModule.abort();
-    };
-  }, [restorePlaybackAudioMode]);
+    return () => voice.cancel();
+  }, [voice, restorePlaybackAudioMode]);
 
   useEffect(() => {
     let mounted = true;
@@ -222,28 +176,40 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
           setResumeSnapshot(snapshot);
         }
       })
+      .catch(() => {
+        /* Storage failure must not block the tap/player interface. */
+      })
       .finally(() => {
         if (mounted) setIsHydrating(false);
       });
     return () => {
       mounted = false;
     };
-  }, [story]);
+  }, [story, context]);
 
   useEffect(() => {
-    if (!currentSegment) return;
+    if (!currentSegment) {
+      player.pause();
+      return;
+    }
     finishedSegmentRef.current = null;
     readySegmentRef.current = null;
-    player.pause();
+    assignedSegmentRef.current = null;
+    lastSavedSecondRef.current = -1;
     preparingAt.current = Date.now();
     setTransport("preparing");
     setTransportError(null);
     let cancelled = false;
     const abort = new AbortController();
-    source(story, currentSegment.id, state.nodeId, context, abort.signal)
-      .then((audio) => {
-        if (cancelled) return;
-        player.replace(audio);
+    preparePlaybackSource(
+      player,
+      () =>
+        source(story, currentSegment.id, state.nodeId, context, abort.signal),
+      abort.signal,
+    )
+      .then((assigned) => {
+        if (cancelled || !assigned) return;
+        assignedSegmentRef.current = currentSegment.id;
         setTransport("ready");
       })
       .catch((error) => {
@@ -263,6 +229,7 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
     if (
       currentSegment &&
       transport === "ready" &&
+      assignedSegmentRef.current === currentSegment.id &&
       status.isLoaded &&
       !status.didJustFinish &&
       status.currentTime <= 0.5
@@ -295,6 +262,7 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
       pending.segmentId !== currentSegment.id ||
       readySegmentRef.current !== currentSegment.id ||
       !status.isLoaded ||
+      transport !== "ready" ||
       applyingSeekRef.current === pending.requestId
     ) {
       return;
@@ -314,6 +282,8 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
         if (seekRequestIdRef.current !== pending.requestId) return;
         pendingSeekRef.current = null;
         setSeekRevision((value) => value + 1);
+        setTransport("failed");
+        setTransportError("Kaldığın yere gidilemedi. Tekrar dene.");
         dispatch({ type: "PAUSE" });
       });
   }, [
@@ -323,6 +293,7 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
     status.isLoaded,
     status.currentTime,
     seekRevision,
+    transport,
   ]);
 
   useEffect(() => {
@@ -330,6 +301,7 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
       state.mode === "playing" &&
       transport === "ready" &&
       currentSegment &&
+      !pendingSeekRef.current &&
       status.isLoaded &&
       readySegmentRef.current === currentSegment.id
     ) {
@@ -337,55 +309,79 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
     } else if (state.mode !== "playing") {
       player.pause();
     }
-  }, [currentSegment, player, state.mode, status.isLoaded, transport]);
+  }, [
+    currentSegment,
+    player,
+    state.mode,
+    status.isLoaded,
+    transport,
+    seekRevision,
+  ]);
 
   useEffect(() => {
-    if (!currentSegment || !status.didJustFinish || pendingSeekRef.current)
+    if (
+      transport !== "ready" ||
+      state.mode !== "playing" ||
+      !currentSegment ||
+      !status.didJustFinish ||
+      pendingSeekRef.current
+    )
       return;
     if (readySegmentRef.current !== currentSegment.id) return;
     if (finishedSegmentRef.current === currentSegment.id) return;
     finishedSegmentRef.current = currentSegment.id;
     dispatch({ type: "AUDIO_FINISHED" });
-  }, [currentSegment, dispatch, status.didJustFinish]);
+  }, [currentSegment, dispatch, status.didJustFinish, transport, state.mode]);
 
   useEffect(() => {
-    if (state.mode !== "playing" || !status.isLoaded || pendingSeekRef.current)
+    if (
+      transport !== "ready" ||
+      readySegmentRef.current !== currentSegment?.id ||
+      state.mode !== "playing" ||
+      !status.isLoaded ||
+      pendingSeekRef.current
+    )
       return;
     const wholeSecond = Math.floor(status.currentTime);
     if (wholeSecond === lastSavedSecondRef.current) return;
     lastSavedSecondRef.current = wholeSecond;
     dispatch({ type: "PROGRESS", positionSeconds: status.currentTime });
-  }, [dispatch, state.mode, status.currentTime, status.isLoaded]);
+  }, [
+    dispatch,
+    state.mode,
+    status.currentTime,
+    status.isLoaded,
+    transport,
+    currentSegment,
+  ]);
 
   useEffect(() => {
     if (isHydrating || resumeSnapshot) return;
     saveProgress(state, context).catch(() => undefined);
-  }, [isHydrating, resumeSnapshot, state]);
+  }, [isHydrating, resumeSnapshot, state, context]);
 
   useEffect(() => {
-    if (state.mode !== "awaitingChoice" || state.guidancePlayed) return;
+    if (
+      state.mode !== "awaitingChoice" ||
+      state.guidancePlayed ||
+      voicePreparing ||
+      transport !== "ready"
+    )
+      return;
     const timer = setTimeout(
       () => dispatch({ type: "GUIDANCE_TIMEOUT" }),
       8_000,
     );
     return () => clearTimeout(timer);
-  }, [dispatch, state.guidancePlayed, state.mode]);
+  }, [dispatch, state.guidancePlayed, state.mode, voicePreparing, transport]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") return;
-      if (voiceSessionActiveRef.current) {
-        voiceSessionActiveRef.current = false;
-        voiceResultHandledRef.current = true;
-        ExpoSpeechRecognitionModule.abort();
-        restorePlaybackAudioMode();
-        dispatch({
-          type: "VOICE_FAILED",
-          message: VOICE_NOT_RECOGNIZED_MESSAGE,
-        });
-      }
+      voice.cancel(VOICE_RETRY);
       player.pause();
       dispatch({ type: "PAUSE" });
+      if (isHydrating || resumeSnapshot) return;
       saveProgress(
         {
           ...stateRef.current,
@@ -393,13 +389,28 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
             stateRef.current.mode === "playing"
               ? "paused"
               : stateRef.current.mode,
-          positionSeconds: player.currentTime,
+          positionSeconds:
+            pendingSeekRef.current ||
+            transport !== "ready" ||
+            readySegmentRef.current !==
+              getCurrentSegment(story, stateRef.current)?.id
+              ? stateRef.current.positionSeconds
+              : player.currentTime,
         },
         context,
       ).catch(() => undefined);
     });
     return () => subscription.remove();
-  }, [dispatch, player, restorePlaybackAudioMode]);
+  }, [
+    dispatch,
+    player,
+    voice,
+    context,
+    transport,
+    story,
+    isHydrating,
+    resumeSnapshot,
+  ]);
 
   const togglePlayback = useCallback(() => {
     dispatch({ type: state.mode === "playing" ? "PAUSE" : "PLAY" });
@@ -407,15 +418,17 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
 
   const chooseOption = useCallback(
     (optionId: string) => {
+      voice.cancel();
       player.pause();
       dispatch({ type: "SELECT_OPTION", optionId });
     },
-    [dispatch, player],
+    [dispatch, player, voice],
   );
 
   const seekToPlaybackSection = useCallback(
     (seconds: number) => {
       if (!playbackSection) return;
+      voice.cancel();
       const target = findPlaybackSectionTarget(playbackSection, seconds);
       if (!target) return;
 
@@ -438,11 +451,12 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
         positionSeconds: target.positionSeconds,
       });
     },
-    [dispatch, playbackSection, player, state.mode],
+    [dispatch, playbackSection, player, state.mode, voice],
   );
 
   const navigateToSection = useCallback(
     (target: SectionNavigationTarget) => {
+      voice.cancel();
       const targetSegment = story.nodes[target.nodeId];
       if (!targetSegment || targetSegment.kind !== "narration") return;
 
@@ -459,103 +473,28 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
       player.pause();
       dispatch({ type: "SEEK", ...target });
     },
-    [dispatch, player, state.mode, story.nodes],
+    [dispatch, player, state.mode, story.nodes, voice],
   );
 
-  const startVoiceChoice = useCallback(async () => {
-    if (!choice || state.mode !== "awaitingChoice") return;
-
-    const supportsOnDeviceRecognition =
-      ExpoSpeechRecognitionModule.supportsOnDeviceRecognition();
-
+  const startVoiceChoice = useCallback(() => {
+    if (choice && state.mode === "awaitingChoice" && transport === "ready")
+      void voice.start(choice, story.language);
+  }, [choice, state.mode, transport, voice, story.language]);
+  const finishVoiceChoice = useCallback(() => voice.finish(), [voice]);
+  const cancelVoiceChoice = useCallback(
+    () => voice.cancel("Sesli seçim iptal edildi. Seçeneğe dokunabilirsin."),
+    [voice],
+  );
+  useEffect(() => {
     if (
-      supportsOnDeviceRecognition &&
-      Platform.OS === "android" &&
-      Number(Platform.Version) >= 33
-    ) {
-      try {
-        const { installedLocales } =
-          await ExpoSpeechRecognitionModule.getSupportedLocales({});
-        const requestedLocale = normalizeLocale(story.language);
-        const localeIsInstalled = installedLocales.some(
-          (locale) => normalizeLocale(locale) === requestedLocale,
-        );
-
-        if (!localeIsInstalled) {
-          await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({
-            locale: story.language,
-          });
-          dispatch({ type: "VOICE_FAILED", message: OFFLINE_MODEL_MESSAGE });
-          return;
-        }
-      } catch {
-        // Starting below remains privacy-safe because on-device recognition is mandatory.
-      }
-    }
-
-    if (!supportsOnDeviceRecognition) {
-      if (Platform.OS === "android" && Number(Platform.Version) >= 33) {
-        try {
-          await ExpoSpeechRecognitionModule.androidTriggerOfflineModelDownload({
-            locale: story.language,
-          });
-          dispatch({ type: "VOICE_FAILED", message: OFFLINE_MODEL_MESSAGE });
-          return;
-        } catch {
-          // The tap fallback below is intentionally retained when Android cannot download a pack.
-        }
-      }
-      dispatch({ type: "VOICE_FAILED", message: VOICE_UNAVAILABLE_MESSAGE });
-      return;
-    }
-
-    const permission =
-      await ExpoSpeechRecognitionModule.requestMicrophonePermissionsAsync();
-    if (!permission.granted) {
-      dispatch({
-        type: "VOICE_FAILED",
-        message: "Mikrofon izni kapalı. Seçeneğe dokunarak devam edebilirsin.",
-      });
-      return;
-    }
-
-    try {
-      voiceSessionActiveRef.current = true;
-      voiceResultHandledRef.current = false;
-      dispatch({ type: "START_RECORDING" });
-      ExpoSpeechRecognitionModule.start({
-        lang: story.language,
-        contextualStrings: choice.options.flatMap(({ label, voiceHints }) => [
-          label,
-          ...voiceHints,
-        ]),
-        continuous: false,
-        interimResults: false,
-        maxAlternatives: 5,
-        requiresOnDeviceRecognition: true,
-      });
-    } catch {
-      voiceSessionActiveRef.current = false;
-      dispatch({ type: "VOICE_FAILED", message: VOICE_UNAVAILABLE_MESSAGE });
-    }
-  }, [choice, dispatch, state.mode, story.language]);
-
-  const finishVoiceChoice = useCallback(() => {
-    if (
-      !choice ||
-      state.mode !== "recordingChoice" ||
-      !voiceSessionActiveRef.current
+      !voicePreparing &&
+      state.mode !== "recordingChoice" &&
+      state.mode !== "resolvingChoice"
     )
       return;
-    dispatch({ type: "START_RESOLVING" });
-    ExpoSpeechRecognitionModule.stop();
-  }, [choice, dispatch, state.mode]);
-
-  useEffect(() => {
-    if (state.mode !== "recordingChoice") return;
-    const timer = setTimeout(finishVoiceChoice, 10_000);
+    const timer = setTimeout(() => voice.cancel(VOICE_RETRY), 15_000);
     return () => clearTimeout(timer);
-  }, [finishVoiceChoice, state.mode]);
+  }, [voice, voicePreparing, state.mode]);
 
   const continueSaved = useCallback(async () => {
     if (!resumeSnapshot) return;
@@ -574,23 +513,34 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
   }, [player, resumeSnapshot, story]);
 
   const restart = useCallback(async () => {
+    voice.cancel();
     player.pause();
-    await clearProgress(story.id, context);
+    ++seekRequestIdRef.current;
+    pendingSeekRef.current = null;
+    try {
+      await clearProgress(story.id, context);
+    } catch {
+      setTransportError("İlerleme sıfırlanamadı. Tekrar dene.");
+      return;
+    }
     dispatch({ type: "RESTART" });
     setResumeSnapshot(null);
-  }, [dispatch, player, story.id]);
+    setSourceRetry((n) => n + 1);
+  }, [dispatch, player, story.id, context, voice]);
 
   return {
     transport:
-      transport === "ready"
-        ? status.isBuffering
-          ? "buffering"
-          : state.mode === "completed"
-            ? "ended"
-            : state.mode === "playing"
-              ? "playing"
-              : "paused"
-        : transport,
+      state.mode === "completed"
+        ? "ended"
+        : transport === "ready"
+          ? !status.isLoaded
+            ? "preparing"
+            : status.isBuffering
+              ? "buffering"
+              : state.mode === "playing"
+                ? "playing"
+                : "paused"
+          : transport,
     transportError,
     retryTransport: () => {
       if (currentSegment)
@@ -617,6 +567,8 @@ export function useStoryPlayer(story: Story, context: PlaybackContext) {
     navigateToSection,
     startVoiceChoice,
     finishVoiceChoice,
+    cancelVoiceChoice,
+    voicePreparing,
     continueSaved,
     restart,
   };
